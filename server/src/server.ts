@@ -1,8 +1,9 @@
-
 import http from "http";
 import { Server } from "socket.io";
-import app from "./app";
-import { NODE_ENV, PORT } from "./config/config";
+
+import { NODE_ENV, PORT } from "./config/config.js";
+import app from "./app.js";
+
 
 const server = http.createServer(app);
 
