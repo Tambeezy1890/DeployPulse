@@ -20,6 +20,7 @@ app.use(cookieParser());
 app.get("/", (_req: Request, res: Response) => {
   res.send("Server is now live");
 });
+app.use("/api/auth", authRoute);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
