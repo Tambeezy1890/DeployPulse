@@ -1,27 +1,15 @@
+import type { ErrorRequestHandler } from "express";
+import { ApiError } from "../utils/ApiError.js";
 
+export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
+  const status = err instanceof ApiError ? err.status : 500;
 
-
-import type {
-  ErrorRequestHandler,
-  NextFunction,
-  Request,
-  Response,
-} from "express";
-
-type AppError = Error & {
-  status?: number;
-};
-
-export const errorMiddleware: ErrorRequestHandler = (
-  err: AppError,
-  _req: Request,
-  res: Response,
-  _next: NextFunction
-) => {
-  const status = err.status ?? 500;
-
-  res.status(status).json({
+  return res.status(status).json({
     success: false,
-    message: err.message || "Internal server error",
+    message: err instanceof Error ? err.message : "Internal server error",
+    ...(err instanceof ApiError &&
+      err.errors && {
+        errors: err.errors,
+      }),
   });
 };
