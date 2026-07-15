@@ -32,8 +32,6 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.use(authRoute);
-
 app.use(errorMiddleware);
 
 export default app;

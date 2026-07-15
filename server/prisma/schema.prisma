@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -15,5 +16,78 @@ model User {
   refreshToken String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  role         String   @default("USER")
+  role         Role   @default(USER)
+  projects            Project[]
+  triggeredDeployments Deployment[]
+
+}
+
+model Project {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       
+  description String?
+  repository  String?
+  provider    Provider?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  ownerId     String
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  deployments Deployment[]
+
+  @@index([ownerId])
+  @@unique([ownerId, slug])
+}
+
+model Deployment {
+  id            String            @id @default(cuid())
+  status        DeploymentStatus  @default(PENDING)
+  environment   Environment       @default(PRODUCTION)
+  branch        String?
+  commitSha     String?
+  commitMessage String?
+  deploymentUrl String?
+  logsUrl       String?
+  startedAt     DateTime          @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  projectId     String
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  triggeredById String?
+  triggeredBy   User?             @relation(fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([triggeredById])
+  @@index([status])
+}
+
+enum DeploymentStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum Environment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+enum Provider {
+  VERCEL
+  RENDER
+  RAILWAY
+  NETLIFY
+  AWS
+  OTHER
+}
+enum Role {
+  USER
+  ADMIN
 }
