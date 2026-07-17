@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { validationResult } from "express-validator";
-import { ApiError, ValidationErrorDetail } from "../../../utils/ApiError.js";
+import { ApiError, ValidationErrorDetail } from "../utils/ApiError.js";
 
 export const validateRequest = (
   req: Request,
@@ -8,7 +8,7 @@ export const validateRequest = (
   next: NextFunction,
 ) => {
   const result = validationResult(req);
-  console.log("RAW VALIDATION ERRORS:", result.array());
+
   if (result.isEmpty()) {
     return next();
   }
@@ -16,7 +16,7 @@ export const validateRequest = (
   const errors: ValidationErrorDetail[] = result.array().map((error) => {
     if (error.type === "field") {
       return {
-        field: error.path,
+        field: error.path || "request",
         message: String(error.msg),
       };
     }

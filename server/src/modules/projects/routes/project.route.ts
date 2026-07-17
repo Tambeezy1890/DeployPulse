@@ -1,5 +1,6 @@
 import { Router } from "express";
 import protect from "../../auth/middleware/protect.js";
+
 import {
   createProject,
   deleteProject,
@@ -8,14 +9,51 @@ import {
   updateProject,
 } from "../controller/project.controller.js";
 
+import {
+  createProjectValidator,
+  projectIdValidator,
+  updateProjectValidator,
+} from "../validators/project.validators.js";
+
+import type {
+  CreateProjectBody,
+  ProjectParams,
+  UpdateProjectBody,
+} from "../types/project.types.js";
+import { validateRequest } from "../../../middleware/validateRequest.js";
+
 const projectRouter = Router();
 
 projectRouter.use(protect);
 
-projectRouter.get("/projects", getProjects);
-projectRouter.get("/project/:id", getProjectById);
-projectRouter.post("/project", createProject);
-projectRouter.patch("/project/:id", updateProject);
-projectRouter.delete("/project/:id", deleteProject);
+projectRouter.get("/", getProjects);
+
+projectRouter.get<ProjectParams>(
+  "/:id",
+  projectIdValidator,
+  validateRequest,
+  getProjectById,
+);
+
+projectRouter.post<{}, unknown, CreateProjectBody>(
+  "/",
+  createProjectValidator,
+  validateRequest,
+  createProject,
+);
+
+projectRouter.patch<ProjectParams, unknown, UpdateProjectBody>(
+  "/:id",
+  updateProjectValidator,
+  validateRequest,
+  updateProject,
+);
+
+projectRouter.delete<ProjectParams>(
+  "/:id",
+  projectIdValidator,
+  validateRequest,
+  deleteProject,
+);
 
 export default projectRouter;

@@ -3,6 +3,7 @@ import cors from "cors";
 import authRoute from "./modules/auth/routes/auth.route.js";
 import { errorMiddleware } from "./middleware/Error.Middleware.js";
 import cookieParser from "cookie-parser";
+import projectRouter from "./modules/projects/routes/project.route.js";
 
 const app: Express = express();
 
@@ -21,6 +22,7 @@ app.get("/", (_req: Request, res: Response) => {
   res.send("Server is now live");
 });
 app.use("/api/auth", authRoute);
+app.use("/api/projects", projectRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({

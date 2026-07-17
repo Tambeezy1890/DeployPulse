@@ -11,7 +11,7 @@ import {
   loginValidation,
   registerValidator,
 } from "../validators/auth.validators.js";
-import { validateRequest } from "../middleware/validateRequest.js";
+import { validateRequest } from "../../../middleware/validateRequest.js";
 
 const authRoute = Router();
 
