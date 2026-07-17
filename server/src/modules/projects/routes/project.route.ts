@@ -21,6 +21,8 @@ import type {
   UpdateProjectBody,
 } from "../types/project.types.js";
 import { validateRequest } from "../../../middleware/validateRequest.js";
+import deploymentRoute from "../../deployments/routes/projectDeployment.route.js";
+import projectDeploymentRouter from "../../deployments/routes/projectDeployment.route.js";
 
 const projectRouter = Router();
 
@@ -55,5 +57,7 @@ projectRouter.delete<ProjectParams>(
   validateRequest,
   deleteProject,
 );
+
+projectRouter.use("/:projectId/deployments", projectDeploymentRouter);
 
 export default projectRouter;

@@ -4,6 +4,7 @@ import authRoute from "./modules/auth/routes/auth.route.js";
 import { errorMiddleware } from "./middleware/Error.Middleware.js";
 import cookieParser from "cookie-parser";
 import projectRouter from "./modules/projects/routes/project.route.js";
+import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
 
 const app: Express = express();
 
@@ -23,6 +24,7 @@ app.get("/", (_req: Request, res: Response) => {
 });
 app.use("/api/auth", authRoute);
 app.use("/api/projects", projectRouter);
+app.use("/api/deployments", deploymentRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
