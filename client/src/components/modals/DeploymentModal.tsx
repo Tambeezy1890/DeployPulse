@@ -15,7 +15,7 @@ type deploymentModalProps = {
 function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
   if (!project || !user) return null;
   const projectDeployments = deployments.filter(
-    (deployment) => deployment.projectId === project.id
+    (deployment) => deployment.projectId === project.id,
   );
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -50,7 +50,6 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
         <section className="mt-5 grid gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-4 text-sm">
           <DetailRow label="Opened by" value={user.name} />
           <DetailRow label="Environment" value={project.environment} />
-          <DetailRow label="Last deploy" value={project.lastDeploy} />
         </section>
 
         <section className="mt-6">

@@ -1,13 +1,27 @@
+export type Environment = "production" | "development" | "staging";
 
- export type Environment = "production" | "development" | "staging"
+export type DeploymentStatus = "success" | "failed" | "pending";
 
- export type DeploymentStatus = "success" | "failed" | "pending";
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  environment: Environment;
+  status: DeploymentStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
- export type Project = {
-    id: string,
-    name: string,
-    environment: Environment,
-    status: DeploymentStatus,
-    lastDeploy: string
- }
+export interface CreateProjectData {
+  name: string;
+  description?: string;
+  environment: Environment;
+}
 
+export interface UpdateProjectData {
+  name?: string;
+  description?: string;
+  environment?: Environment;
+  status?: DeploymentStatus;
+}

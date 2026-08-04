@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 export type AuthContextType = {
   user: null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
 };
 

@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Ui/Dashboard";
 import ProjectDetails from "./pages/Ui/ProjectDetails";
+import CreateProject from "./pages/Ui/CreateProject";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route path="/projects/:projectId" element={<ProjectDetails />} />
+        <Route path="/projects/new" element={<CreateProject />} />
 
         {/* Anything unknown */}
         <Route path="*" element={<Navigate to="/login" replace />} />

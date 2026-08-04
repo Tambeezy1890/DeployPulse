@@ -24,7 +24,7 @@ export const createProject = asyncHandler<{}, unknown, CreateProjectBody>(
     return res.status(201).json({
       success: true,
       message: "Project created successfully.",
-      data: project,
+      project: project,
     });
   },
 );
@@ -39,7 +39,7 @@ export const getProjects = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Projects fetched successfully.",
-    data: projects,
+    projects: projects,
   });
 });
 
@@ -53,7 +53,7 @@ export const getProjectById = asyncHandler<ProjectParams>(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Project fetched successfully.",
-    data: project,
+    project: project,
   });
 });
 
@@ -75,7 +75,7 @@ export const updateProject = asyncHandler<
   return res.status(200).json({
     success: true,
     message: "Project updated successfully.",
-    data: project,
+    project: project,
   });
 });
 
