@@ -4,12 +4,10 @@ import { ArrowLeft, FolderPlus } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useProject } from "../../contexts/ProjectContext";
-import type { Environment } from "../../types/project";
 
 type ProjectFormState = {
   name: string;
   description: string;
-  environment: Environment;
 };
 
 function CreateProject() {
@@ -21,7 +19,6 @@ function CreateProject() {
   const [formData, setFormData] = useState<ProjectFormState>({
     name: "",
     description: "",
-    environment: "development",
   });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -40,7 +37,6 @@ function CreateProject() {
       await createProject({
         name: projectName,
         description: formData.description.trim() || undefined,
-        environment: formData.environment,
       });
 
       navigate("/dashboard");
@@ -133,37 +129,6 @@ function CreateProject() {
                 disabled={isSubmitting}
                 className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="environment"
-                className="mb-2 block text-sm font-medium text-slate-200"
-              >
-                Environment
-              </label>
-
-              <select
-                id="environment"
-                name="environment"
-                value={formData.environment}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    environment: event.target.value as Environment,
-                  }))
-                }
-                disabled={isSubmitting}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="development">Development</option>
-                <option value="staging">Staging</option>
-                <option value="production">Production</option>
-              </select>
-
-              <p className="mt-2 text-xs text-slate-500">
-                Select the environment where this project is currently deployed.
-              </p>
             </div>
 
             <div className="flex flex-col-reverse gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-end">

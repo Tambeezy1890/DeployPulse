@@ -12,18 +12,22 @@ import { user } from "../../data/user";
 import { useDeploymentModal } from "../../hooks/useDeploymentModal";
 import { useProject } from "../../contexts/ProjectContext";
 
-import type { Environment } from "../../types/project";
+import deploymentService from "../../services/deploymentServices";
+
+import type { Deployment } from "../../types/deployment";
 
 function Dashboard() {
   const [search, setSearch] = useState("");
-
-  const [environmentFilter, setEnvironmentFilter] = useState<
-    Environment | "all"
-  >("all");
+  const [allDeployments, setAllDeployments] = useState<Deployment[]>([]);
 
   const navigate = useNavigate();
 
-  const { projects, loading: isLoading, getProjects } = useProject();
+  const {
+    projects,
+    loading: isLoading,
+    getProjects,
+    deleteProject,
+  } = useProject();
 
   const { deploymentModal, openDeploymentModal, closeDeploymentModal } =
     useDeploymentModal({ user });
@@ -32,38 +36,71 @@ function Dashboard() {
     void getProjects();
   }, [getProjects]);
 
-  const filteredProjects = useMemo(() => {
-    return projects.filter((project) => {
-      const matchesSearch = project.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
+  useEffect(() => {
+    if (projects.length === 0) {
+      setAllDeployments([]);
+      return;
+    }
 
-      const matchesEnvironment =
-        environmentFilter === "all" ||
-        project.environment === environmentFilter;
+    const loadDeployments = async () => {
+      try {
+        const deploymentResults = await Promise.all(
+          projects.map((project) =>
+            deploymentService.getDeployments(project.id),
+          ),
+        );
 
-      return matchesSearch && matchesEnvironment;
-    });
-  }, [projects, search, environmentFilter]);
+        setAllDeployments(deploymentResults.flat());
+      } catch (error) {
+        console.error("Failed to load dashboard deployments:", error);
 
-  const projectMetrics = useMemo(() => {
-    const total = projects.length;
-
-    const healthy = projects.filter(
-      (project) => project.status === "success",
-    ).length;
-
-    const failed = projects.filter(
-      (project) => project.status === "failed",
-    ).length;
-
-    return {
-      total,
-      healthy,
-      failed,
-      uptime: "0%",
+        setAllDeployments([]);
+      }
     };
+
+    void loadDeployments();
   }, [projects]);
+
+  const filteredProjects = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+
+    return projects.filter((project) =>
+      project.name.toLowerCase().includes(searchValue),
+    );
+  }, [projects, search]);
+
+  const totalDeployments = allDeployments.length;
+
+  const failedDeployments = allDeployments.filter(
+    (deployment) => deployment.status === "FAILED",
+  ).length;
+
+  const healthyProjects = projects.filter((project) => {
+    const projectDeployments = allDeployments
+      .filter((deployment) => deployment.projectId === project.id)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+    const latestDeployment = projectDeployments[0];
+
+    return latestDeployment?.status === "SUCCESS";
+  }).length;
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+
+      setAllDeployments((previousDeployments) =>
+        previousDeployments.filter(
+          (deployment) => deployment.projectId !== projectId,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -87,16 +124,13 @@ function Dashboard() {
         )}
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Total Projects" value={projectMetrics.total} />
+          <MetricCard label="Total Projects" value={projects.length} />
 
-          <MetricCard label="Healthy" value={projectMetrics.healthy} />
+          <MetricCard label="Healthy Projects" value={healthyProjects} />
 
-          <MetricCard
-            label="Failed Deployments"
-            value={projectMetrics.failed}
-          />
+          <MetricCard label="Failed Deployments" value={failedDeployments} />
 
-          <MetricCard label="Average Uptime" value={projectMetrics.uptime} />
+          <MetricCard label="Total Deployments" value={totalDeployments} />
         </section>
 
         <div className="mb-4 flex items-center justify-between gap-4">
@@ -118,33 +152,24 @@ function Dashboard() {
           </button>
         </div>
 
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <div className="mb-6">
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search projects..."
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-indigo-500"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-indigo-500"
           />
-
-          <select
-            value={environmentFilter}
-            onChange={(event) =>
-              setEnvironmentFilter(event.target.value as Environment | "all")
-            }
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-indigo-500"
-          >
-            <option value="all">All environments</option>
-            <option value="development">Development</option>
-            <option value="staging">Staging</option>
-            <option value="production">Production</option>
-          </select>
         </div>
 
         <section className="space-y-4">
           {filteredProjects.length === 0 ? (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center">
-              <p className="text-slate-400">No projects found.</p>
+              <p className="text-slate-400">
+                {projects.length === 0
+                  ? "No projects yet."
+                  : "No projects match your search."}
+              </p>
 
               {projects.length === 0 && (
                 <button
@@ -163,6 +188,7 @@ function Dashboard() {
                 project={project}
                 onQuickView={() => openDeploymentModal(project)}
                 onOpen={() => navigate(`/projects/${project.id}`)}
+                onDelete={() => void handleDeleteProject(project.id)}
               />
             ))
           )}

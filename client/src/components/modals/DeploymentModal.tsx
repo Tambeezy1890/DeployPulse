@@ -1,22 +1,22 @@
+import { useEffect } from "react";
+
 import type { Project } from "../../types/project";
 import type { User } from "../../types/user";
 
-import { deployments } from "../../data/deployment";
+import { useDeployment } from "../../contexts/DeploymentContext";
+
 import StatusBadge from "../ui/StatusBadge";
-import { useEffect } from "react";
 import DetailRow from "../ui/DetailRow";
 
-type deploymentModalProps = {
+type DeploymentModalProps = {
   project: Project | null;
   user: User | null;
   onClose: () => void;
 };
 
-function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
-  if (!project || !user) return null;
-  const projectDeployments = deployments.filter(
-    (deployment) => deployment.projectId === project.id,
-  );
+function DeploymentModal({ project, user, onClose }: DeploymentModalProps) {
+  const { deployments, loading, getDeployments } = useDeployment();
+
   useEffect(() => {
     document.body.style.overflow = "hidden";
 
@@ -24,6 +24,17 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
       document.body.style.overflow = "auto";
     };
   }, []);
+
+  useEffect(() => {
+    if (!project) return;
+
+    void getDeployments(project.id);
+  }, [project, getDeployments]);
+
+  if (!project || !user) return null;
+
+  const latestDeployment = deployments[0];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
@@ -44,12 +55,21 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
             </h2>
           </div>
 
-          <StatusBadge status={project.status} />
+          {latestDeployment && <StatusBadge status={latestDeployment.status} />}
         </header>
 
         <section className="mt-5 grid gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-4 text-sm">
           <DetailRow label="Opened by" value={user.name} />
-          <DetailRow label="Environment" value={project.environment} />
+
+          <DetailRow
+            label="Environment"
+            value={latestDeployment?.environment ?? "No deployments"}
+          />
+
+          <DetailRow
+            label="Latest status"
+            value={latestDeployment?.status ?? "No deployments"}
+          />
         </section>
 
         <section className="mt-6">
@@ -59,13 +79,17 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
             </h3>
 
             <span className="text-sm text-slate-400">
-              {projectDeployments.length} total
+              {deployments.length} total
             </span>
           </div>
 
           <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-            {projectDeployments.length > 0 ? (
-              projectDeployments.map((deployment) => (
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">
+                Loading deployments...
+              </div>
+            ) : deployments.length > 0 ? (
+              deployments.map((deployment) => (
                 <article
                   key={deployment.id}
                   className="rounded-xl border border-white/10 bg-slate-950/40 p-4"
@@ -73,11 +97,11 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-semibold text-white">
-                        {deployment.version}
+                        {deployment.branch ?? "Unknown branch"}
                       </p>
 
                       <p className="mt-1 text-sm capitalize text-slate-400">
-                        {deployment.environment}
+                        {deployment.environment.toLowerCase()}
                       </p>
                     </div>
 
@@ -87,13 +111,17 @@ function DeploymentModal({ project, user, onClose }: deploymentModalProps) {
                   <div className="mt-4 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
                     <p>
                       Duration:{" "}
-                      <span className="text-white">{deployment.duration}</span>
+                      <span className="text-white">
+                        {deployment.durationMs !== null
+                          ? `${(deployment.durationMs / 1000).toFixed(2)}s`
+                          : "—"}
+                      </span>
                     </p>
 
                     <p>
-                      Triggered by:{" "}
+                      Created:{" "}
                       <span className="text-white">
-                        {deployment.triggeredBy}
+                        {new Date(deployment.createdAt).toLocaleString()}
                       </span>
                     </p>
                   </div>

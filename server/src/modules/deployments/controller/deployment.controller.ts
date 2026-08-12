@@ -34,7 +34,7 @@ export const createDeployment = asyncHandler<
   return res.status(201).json({
     success: true,
     message: "Deployment created successfully.",
-    data: deployment,
+    deployment,
   });
 });
 
@@ -52,7 +52,7 @@ export const getProjectDeployments = asyncHandler<ProjectDeploymentParams>(
     return res.status(200).json({
       success: true,
       message: "Deployments fetched successfully.",
-      data: deployments,
+      deployments,
     });
   },
 );
@@ -64,6 +64,7 @@ export const getDeploymentById = asyncHandler<DeploymentParams>(
     }
 
     const deployment = await getDeploymentByIdService(
+      req.params.projectId,
       req.user.id,
       req.params.deploymentId,
     );
@@ -71,7 +72,7 @@ export const getDeploymentById = asyncHandler<DeploymentParams>(
     return res.status(200).json({
       success: true,
       message: "Deployment fetched successfully.",
-      data: deployment,
+      deployment,
     });
   },
 );
@@ -85,7 +86,8 @@ export const updateDeploymentStatus = asyncHandler<
     throw new ApiError("Authentication required.", 401);
   }
 
-  const updatedDeployment = await updateDeploymentStatusService(
+  const deployment = await updateDeploymentStatusService(
+    req.params.projectId,
     req.user.id,
     req.params.deploymentId,
     req.body,
@@ -94,7 +96,7 @@ export const updateDeploymentStatus = asyncHandler<
   return res.status(200).json({
     success: true,
     message: "Deployment status updated successfully.",
-    data: updatedDeployment,
+    deployment,
   });
 });
 
@@ -104,7 +106,11 @@ export const deleteDeployment = asyncHandler<DeploymentParams>(
       throw new ApiError("Authentication required.", 401);
     }
 
-    await deleteDeploymentService(req.user.id, req.params.deploymentId);
+    await deleteDeploymentService(
+      req.params.projectId,
+      req.user.id,
+      req.params.deploymentId,
+    );
 
     return res.status(200).json({
       success: true,

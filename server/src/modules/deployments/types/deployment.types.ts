@@ -23,5 +23,6 @@ export interface ProjectDeploymentParams extends ParamsDictionary {
 }
 
 export interface DeploymentParams extends ParamsDictionary {
+  projectId: string;
   deploymentId: string;
 }

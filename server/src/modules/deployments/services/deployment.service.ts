@@ -17,16 +17,26 @@ export const createDeploymentService = async (
 ) => {
   await getOwnedProjectService(projectId, ownerId);
 
-  return prisma.deployment.create({
+  const deployment = await prisma.deployment.create({
     data: {
       projectId,
       triggeredById: ownerId,
+
       environment: data.environment,
-      branch: data.branch?.trim(),
-      commitSha: data.commitSha?.trim(),
-      commitMessage: data.commitMessage?.trim(),
+
+      branch: data.branch?.trim() || null,
+
+      commitSha: data.commitSha?.trim() || null,
+
+      commitMessage: data.commitMessage?.trim() || null,
+
+      status: "PENDING",
     },
   });
+
+  simulateDeployment(deployment.id);
+
+  return deployment;
 };
 
 export const getDeploymentsService = async (
@@ -39,6 +49,7 @@ export const getDeploymentsService = async (
     where: {
       projectId,
     },
+
     orderBy: {
       createdAt: "desc",
     },
@@ -46,12 +57,15 @@ export const getDeploymentsService = async (
 };
 
 export const getDeploymentByIdService = async (
+  projectId: string,
   ownerId: string,
   deploymentId: string,
 ) => {
   const deployment = await prisma.deployment.findFirst({
     where: {
       id: deploymentId,
+      projectId,
+
       project: {
         ownerId,
       },
@@ -74,11 +88,16 @@ const allowedTransitions: Record<DeploymentStatus, DeploymentStatus[]> = {
 };
 
 export const updateDeploymentStatusService = async (
+  projectId: string,
   ownerId: string,
   deploymentId: string,
   data: UpdateDeploymentStatusBody,
 ) => {
-  const deployment = await getDeploymentByIdService(ownerId, deploymentId);
+  const deployment = await getDeploymentByIdService(
+    projectId,
+    ownerId,
+    deploymentId,
+  );
 
   const permittedStatuses = allowedTransitions[deployment.status];
 
@@ -101,11 +120,13 @@ export const updateDeploymentStatusService = async (
     durationMs = null;
   }
 
-  const isFinishedStatus = ["SUCCESS", "FAILED", "CANCELLED"].includes(
-    data.status,
-  );
+  const finishedStatuses: DeploymentStatus[] = [
+    "SUCCESS",
+    "FAILED",
+    "CANCELLED",
+  ];
 
-  if (isFinishedStatus) {
+  if (finishedStatuses.includes(data.status)) {
     finishedAt = now;
 
     if (startedAt) {
@@ -117,10 +138,14 @@ export const updateDeploymentStatusService = async (
     where: {
       id: deploymentId,
     },
+
     data: {
       status: data.status,
+
       deploymentUrl: data.deploymentUrl?.trim(),
+
       logsUrl: data.logsUrl?.trim(),
+
       startedAt,
       finishedAt,
       durationMs,
@@ -129,10 +154,11 @@ export const updateDeploymentStatusService = async (
 };
 
 export const deleteDeploymentService = async (
+  projectId: string,
   ownerId: string,
   deploymentId: string,
 ) => {
-  await getDeploymentByIdService(ownerId, deploymentId);
+  await getDeploymentByIdService(projectId, ownerId, deploymentId);
 
   return prisma.deployment.delete({
     where: {
@@ -140,3 +166,70 @@ export const deleteDeploymentService = async (
     },
   });
 };
+
+async function simulateDeployment(deploymentId: string) {
+  setTimeout(async () => {
+    try {
+      const deployment = await prisma.deployment.findUnique({
+        where: {
+          id: deploymentId,
+        },
+      });
+
+      if (!deployment || deployment.status !== "PENDING") {
+        return;
+      }
+
+      await prisma.deployment.update({
+        where: {
+          id: deploymentId,
+        },
+
+        data: {
+          status: "RUNNING",
+          startedAt: new Date(),
+        },
+      });
+
+      setTimeout(async () => {
+        try {
+          const runningDeployment = await prisma.deployment.findUnique({
+            where: {
+              id: deploymentId,
+            },
+          });
+
+          if (!runningDeployment || runningDeployment.status !== "RUNNING") {
+            return;
+          }
+
+          const finishedAt = new Date();
+
+          const succeeded = Math.random() > 0.25;
+
+          const status: DeploymentStatus = succeeded ? "SUCCESS" : "FAILED";
+
+          const durationMs = runningDeployment.startedAt
+            ? finishedAt.getTime() - runningDeployment.startedAt.getTime()
+            : null;
+
+          await prisma.deployment.update({
+            where: {
+              id: deploymentId,
+            },
+
+            data: {
+              status,
+              finishedAt,
+              durationMs,
+            },
+          });
+        } catch (error) {
+          console.error("Deployment simulation failed:", error);
+        }
+      }, 5000);
+    } catch (error) {
+      console.error("Deployment simulation failed:", error);
+    }
+  }, 1000);
+}
