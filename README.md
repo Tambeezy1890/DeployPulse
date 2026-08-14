@@ -15,7 +15,6 @@ DeployPulse is a full-stack deployment monitoring dashboard for tracking project
 
 ## Screenshots
 
-Add the exported application screenshots to `screenshots/` using the filenames below.
 
 | Dashboard                                             | Project details                                                   |
 | ----------------------------------------------------- | ----------------------------------------------------------------- |
