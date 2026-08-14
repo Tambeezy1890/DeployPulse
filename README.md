@@ -17,19 +17,19 @@ DeployPulse is a full-stack deployment monitoring dashboard for tracking project
 
 Add the exported application screenshots to `screenshots/` using the filenames below.
 
-| Dashboard | Project details |
-| --- | --- |
+| Dashboard                                             | Project details                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
 | ![DeployPulse dashboard](./screenshots/dashboard.png) | ![DeployPulse project details](./screenshots/project-details.png) |
 
 ## Tech Stack
 
-| Layer | Technologies |
-| --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS, React Router, Axios |
-| Backend | Node.js, Express 5, TypeScript, Socket.IO |
-| Database | PostgreSQL, Prisma ORM |
-| Authentication | JSON Web Tokens, bcrypt, HTTP cookies |
-| Validation | express-validator |
+| Layer          | Technologies                                                  |
+| -------------- | ------------------------------------------------------------- |
+| Frontend       | React 19, TypeScript, Vite, Tailwind CSS, React Router, Axios |
+| Backend        | Node.js, Express 5, TypeScript, Socket.IO                     |
+| Database       | PostgreSQL, Prisma ORM                                        |
+| Authentication | JSON Web Tokens, bcrypt, HTTP cookies                         |
+| Validation     | express-validator                                             |
 
 ## Architecture
 
@@ -126,12 +126,12 @@ npm run typecheck  # Type-check without emitting files
 
 ## API Overview
 
-| Resource | Capabilities |
-| --- | --- |
+| Resource       | Capabilities                                                |
+| -------------- | ----------------------------------------------------------- |
 | Authentication | Register, log in, view current user, refresh token, log out |
-| Projects | Create, list, view, update, and delete projects |
-| Deployments | Create, list, view, update status, and delete deployments |
-| Health | Check API status and uptime |
+| Projects       | Create, list, view, update, and delete projects             |
+| Deployments    | Create, list, view, update status, and delete deployments   |
+| Health         | Check API status and uptime                                 |
 
 ## Roadmap
 
@@ -144,4 +144,3 @@ npm run typecheck  # Type-check without emitting files
 ## Author
 
 Built by [Tambowoneyi Zvirevo](https://github.com/Tambeezy1890).
-
