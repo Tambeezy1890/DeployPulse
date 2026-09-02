@@ -1,4 +1,4 @@
-import type { DeploymentStatus } from "../../types/project";
+import type { DeploymentStatus } from "../../types/deployment";
 
 type StatusBadgeProps = {
   status: DeploymentStatus;

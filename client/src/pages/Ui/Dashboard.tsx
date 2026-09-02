@@ -15,6 +15,8 @@ import { useProject } from "../../contexts/ProjectContext";
 import deploymentService from "../../services/deploymentServices";
 
 import type { Deployment } from "../../types/deployment";
+import { useEditProjectModal } from "../../hooks/useEditProjectModal";
+import EditProjectModal from "../../components/modals/EditProjectModal";
 
 function Dashboard() {
   const [search, setSearch] = useState("");
@@ -27,7 +29,11 @@ function Dashboard() {
     loading: isLoading,
     getProjects,
     deleteProject,
+    updateProject,
   } = useProject();
+
+  const { projectToEdit, openEditProjectModal, closeEditProjectModal } =
+    useEditProjectModal();
 
   const { deploymentModal, openDeploymentModal, closeDeploymentModal } =
     useDeploymentModal({ user });
@@ -122,11 +128,18 @@ function Dashboard() {
             onClose={closeDeploymentModal}
           />
         )}
+        {projectToEdit && (
+          <EditProjectModal
+            project={projectToEdit}
+            onClose={closeEditProjectModal}
+            onSave={updateProject}
+          />
+        )}
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Total Projects" value={projects.length} />
 
-          <MetricCard label="Healthy Projects" value={healthyProjects} />
+          <MetricCard label="Successful Projects" value={healthyProjects} />
 
           <MetricCard label="Failed Deployments" value={failedDeployments} />
 
@@ -188,6 +201,7 @@ function Dashboard() {
                 project={project}
                 onQuickView={() => openDeploymentModal(project)}
                 onOpen={() => navigate(`/projects/${project.id}`)}
+                onEdit={() => openEditProjectModal(project)}
                 onDelete={() => void handleDeleteProject(project.id)}
               />
             ))

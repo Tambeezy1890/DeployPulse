@@ -45,6 +45,8 @@ export const createProjectService = async (
       repository: data.repository?.trim(),
       provider: data.provider,
       ownerId,
+      healthCheckUrl: data.healthCheckUrl?.trim(),
+      monitoringEnabled: data.monitoringEnabled ?? false,
     },
   });
 };
@@ -119,9 +121,17 @@ export const updateProjectService = async (
     data: {
       name: data.name !== undefined ? data.name.trim() : undefined,
       slug,
+
       description: data.description === null ? null : data.description?.trim(),
+
       repository: data.repository === null ? null : data.repository?.trim(),
+
       provider: data.provider,
+
+      healthCheckUrl:
+        data.healthCheckUrl === null ? null : data.healthCheckUrl?.trim(),
+
+      monitoringEnabled: data.monitoringEnabled,
     },
   });
 };

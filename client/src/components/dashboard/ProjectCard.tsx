@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2, Clock3 } from "lucide-react";
+import { Trash2, Clock3, Pencil } from "lucide-react";
 
 import type { Project } from "../../types/project";
 import type { Deployment } from "../../types/deployment";
@@ -11,6 +11,7 @@ type ProjectCardProps = {
   project: Project;
   onQuickView: () => void;
   onOpen: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 };
 
@@ -19,6 +20,7 @@ function ProjectCard({
   onQuickView,
   onOpen,
   onDelete,
+  onEdit,
 }: ProjectCardProps) {
   const [latestDeployment, setLatestDeployment] = useState<Deployment | null>(
     null,
@@ -52,17 +54,31 @@ function ProjectCard({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete();
-          }}
-          className="rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
-          aria-label={`Delete ${project.name}`}
-        >
-          <Trash2 size={18} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit();
+            }}
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-indigo-500/10 hover:text-indigo-400"
+            aria-label={`Edit ${project.name}`}
+          >
+            <Pencil size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
+            aria-label={`Delete ${project.name}`}
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 border-t border-slate-800 pt-4">

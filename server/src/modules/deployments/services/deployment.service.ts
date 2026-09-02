@@ -205,7 +205,7 @@ async function simulateDeployment(deploymentId: string) {
 
           const finishedAt = new Date();
 
-          const succeeded = Math.random() > 0.25;
+          const succeeded = Math.random() > 0.8;
 
           const status: DeploymentStatus = succeeded ? "SUCCESS" : "FAILED";
 

@@ -22,6 +22,7 @@ import type {
 } from "../types/project.types.js";
 import { validateRequest } from "../../../middleware/validateRequest.js";
 import projectDeploymentRouter from "../../deployments/routes/projectDeployment.route.js";
+import { getProjectHealthChecksController } from "../../health/controller/health.controller.js";
 
 const projectRouter = Router();
 
@@ -55,6 +56,10 @@ projectRouter.delete<ProjectParams>(
   projectIdValidator,
   validateRequest,
   deleteProject,
+);
+projectRouter.get(
+  "/:projectId/health-checks",
+  getProjectHealthChecksController,
 );
 
 projectRouter.use("/:projectId/deployments", projectDeploymentRouter);
