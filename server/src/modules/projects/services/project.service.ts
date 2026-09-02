@@ -4,6 +4,7 @@ import type {
   CreateProjectBody,
   UpdateProjectBody,
 } from "../types/project.types.js";
+import { getGitHubRepoFullName } from "../utils/githubRepository.js";
 
 const generateSlug = (name: string): string => {
   return name
@@ -43,6 +44,7 @@ export const createProjectService = async (
       slug,
       description: data.description?.trim(),
       repository: data.repository?.trim(),
+      githubRepoFullName: getGitHubRepoFullName(data.repository),
       provider: data.provider,
       ownerId,
       healthCheckUrl: data.healthCheckUrl?.trim(),
@@ -113,7 +115,8 @@ export const updateProjectService = async (
       );
     }
   }
-
+  const nextRepository =
+    data.repository === undefined ? project.repository : data.repository;
   return prisma.project.update({
     where: {
       id: projectId,
@@ -124,7 +127,17 @@ export const updateProjectService = async (
 
       description: data.description === null ? null : data.description?.trim(),
 
-      repository: data.repository === null ? null : data.repository?.trim(),
+      repository:
+        data.repository === undefined
+          ? undefined
+          : data.repository === null
+            ? null
+            : data.repository.trim(),
+
+      githubRepoFullName:
+        data.repository === undefined
+          ? undefined
+          : getGitHubRepoFullName(nextRepository),
 
       provider: data.provider,
 

@@ -10,4 +10,5 @@ export const {
   EXPIRES_IN,
   REFRESH_TOKEN_SECRET,
   REFRESH_EXPIRES_IN,
+  GITHUB_WEBHOOK_SECRET,
 } = process.env;

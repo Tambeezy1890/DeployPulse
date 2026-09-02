@@ -27,6 +27,9 @@ model Project {
   description String?
   repository  String?
   provider    Provider?
+
+  githubRepoFullName String?
+
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   ownerId     String
@@ -41,6 +44,8 @@ consecutiveSuccesses   Int           @default(0)
 monitorStatusChangedAt DateTime?
 lastCheckedAt          DateTime?
 
+
+@@index([githubRepoFullName])
   @@unique([ownerId, slug])
   @@index([ownerId])
 }
@@ -49,6 +54,8 @@ model Deployment {
   id            String           @id @default(cuid())
   status        DeploymentStatus @default(PENDING)
   environment   Environment      @default(PRODUCTION)
+  source     DeploymentSource @default(MANUAL)
+externalId String?
   branch        String?
   commitSha     String?
   commitMessage String?
@@ -66,9 +73,11 @@ model Deployment {
   triggeredById String?
   triggeredBy   User?   @relation(fields: [triggeredById], references: [id], onDelete: SetNull)
 
+  @@unique([projectId, source, externalId])
   @@index([projectId])
   @@index([triggeredById])
   @@index([status])
+  
 }
 model HealthCheck {
   id             String       @id @default(cuid())
@@ -123,4 +132,8 @@ enum MonitorStatus {
   DEGRADED
   DOWN
   RECOVERING
+}
+enum DeploymentSource {
+  MANUAL
+  GITHUB
 }

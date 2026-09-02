@@ -5,6 +5,7 @@ import { errorMiddleware } from "./middleware/Error.Middleware.js";
 import cookieParser from "cookie-parser";
 import projectRouter from "./modules/projects/routes/project.route.js";
 import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
+import githubWebhookRouter from "./modules/webhooks/github/routes/githubWebhook.route.js";
 
 const app: Express = express();
 
@@ -14,6 +15,7 @@ app.use(
     credentials: true,
   }),
 );
+app.use("/api/webhooks/github", githubWebhookRouter);
 
 app.use(express.json());
 
