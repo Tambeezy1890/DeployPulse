@@ -1,4 +1,12 @@
-import { CheckCircle2, Circle, LoaderCircle, XCircle } from "lucide-react";
+import {
+  Clock3,
+  ExternalLink,
+  FileText,
+  GitBranch,
+  LoaderCircle,
+} from "lucide-react";
+
+import { FaGithub } from "react-icons/fa";
 
 import type { Deployment } from "../../types/deployment";
 
@@ -6,187 +14,178 @@ type DeploymentPipelineProps = {
   deployment: Deployment;
 };
 
-const stages = [
-  {
-    key: "QUEUED",
-    label: "Queued",
-  },
-  {
-    key: "BUILD",
-    label: "Build",
-  },
-  {
-    key: "TEST",
-    label: "Test",
-  },
-  {
-    key: "DEPLOY",
-    label: "Deploy",
-  },
-];
+const statusStyles = {
+  PENDING: "border-amber-500/20 bg-amber-500/10 text-amber-400",
+  RUNNING: "border-blue-500/20 bg-blue-500/10 text-blue-400",
+  SUCCESS: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+  FAILED: "border-red-500/20 bg-red-500/10 text-red-400",
+  CANCELLED: "border-slate-600 bg-slate-800 text-slate-400",
+};
+
+const statusMessages = {
+  PENDING: "Waiting for the deployment provider",
+  RUNNING: "Deployment is currently in progress",
+  SUCCESS: "Deployment completed successfully",
+  FAILED: "Deployment completed with an error",
+  CANCELLED: "Deployment was cancelled",
+};
 
 function DeploymentPipeline({ deployment }: DeploymentPipelineProps) {
-  const getCurrentStage = () => {
-    if (deployment.status === "PENDING") {
-      return 0;
-    }
-
-    if (deployment.status === "RUNNING") {
-      return 2;
-    }
-
-    if (deployment.status === "SUCCESS") {
-      return 4;
-    }
-
-    if (deployment.status === "FAILED") {
-      return 2;
-    }
-
-    return 0;
-  };
-
-  const currentStage = getCurrentStage();
+  const eventDate =
+    deployment.finishedAt ?? deployment.startedAt ?? deployment.createdAt;
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-indigo-400">
-            Current deployment
-          </p>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-medium text-indigo-400">
+            {deployment.source === "GITHUB" ? (
+              <FaGithub size={16} />
+            ) : (
+              <LoaderCircle size={16} />
+            )}
+            Latest deployment
+          </div>
 
-          <h2 className="mt-1 text-xl font-semibold text-white">
-            {deployment.branch ?? "Unknown branch"}
-          </h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h2 className="text-xl font-semibold text-white">
+              {deployment.branch ?? "Unknown branch"}
+            </h2>
 
-          <p className="mt-1 text-sm text-slate-400">
-            {deployment.environment}
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                statusStyles[deployment.status]
+              }`}
+            >
+              {deployment.status}
+            </span>
+
+            <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-medium text-slate-400">
+              {deployment.environment}
+            </span>
+          </div>
+
+          <p className="mt-3 text-sm text-slate-400">
+            {deployment.commitMessage ?? statusMessages[deployment.status]}
           </p>
         </div>
 
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            deployment.status === "SUCCESS"
-              ? "bg-emerald-500/10 text-emerald-400"
-              : deployment.status === "FAILED"
-                ? "bg-red-500/10 text-red-400"
-                : deployment.status === "RUNNING"
-                  ? "bg-blue-500/10 text-blue-400"
-                  : "bg-amber-500/10 text-amber-400"
-          }`}
-        >
-          {deployment.status}
-        </span>
+        <div className="flex flex-wrap gap-3">
+          {deployment.deploymentUrl && (
+            <a
+              href={deployment.deploymentUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              Open deployment
+              <ExternalLink size={15} />
+            </a>
+          )}
+
+          {deployment.logsUrl && (
+            <a
+              href={deployment.logsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              View logs
+              <FileText size={15} />
+            </a>
+          )}
+        </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-4 gap-3">
-        {stages.map((stage, index) => {
-          const complete = index < currentStage;
-          const active =
-            index === currentStage && deployment.status !== "SUCCESS";
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <DeploymentDetail label="Source" value={deployment.source} />
 
-          const failed =
-            deployment.status === "FAILED" && index === currentStage;
+        <DeploymentDetail
+          label="Commit"
+          value={
+            deployment.commitSha
+              ? deployment.commitSha.slice(0, 7)
+              : "Unavailable"
+          }
+          monospace
+        />
 
-          return (
-            <div key={stage.key} className="relative">
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border ${
-                    failed
-                      ? "border-red-500 bg-red-500/10 text-red-400"
-                      : complete
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                        : active
-                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-400"
-                          : "border-slate-700 text-slate-600"
-                  }`}
-                >
-                  {failed ? (
-                    <XCircle size={20} />
-                  ) : complete ? (
-                    <CheckCircle2 size={20} />
-                  ) : active ? (
-                    <LoaderCircle size={20} className="animate-spin" />
-                  ) : (
-                    <Circle size={18} />
-                  )}
-                </div>
+        <DeploymentDetail
+          label="Started"
+          value={
+            deployment.startedAt
+              ? new Date(deployment.startedAt).toLocaleString()
+              : "Unavailable"
+          }
+        />
 
-                <p
-                  className={`mt-2 text-sm ${
-                    complete || active ? "text-white" : "text-slate-500"
-                  }`}
-                >
-                  {stage.label}
-                </p>
-              </div>
-
-              {index < stages.length - 1 && (
-                <div
-                  className={`absolute left-[calc(50%+24px)] top-5 h-px w-[calc(100%-48px)] ${
-                    index < currentStage ? "bg-emerald-500" : "bg-slate-700"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
+        <DeploymentDetail
+          label="Duration"
+          value={
+            deployment.durationMs !== null
+              ? formatDuration(deployment.durationMs)
+              : "Unavailable"
+          }
+        />
       </div>
 
-      <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-sm">
-        {deployment.status === "PENDING" && (
-          <>
-            <p className="text-slate-400">&gt; Deployment queued...</p>
+      <div className="mt-5 flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <GitBranch size={16} />
 
-            <p className="mt-1 text-slate-500">&gt; Waiting for runner</p>
-          </>
-        )}
+          <span>{statusMessages[deployment.status]}</span>
+        </div>
 
-        {deployment.status === "RUNNING" && (
-          <>
-            <p className="text-slate-300">&gt; Installing dependencies...</p>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Clock3 size={14} />
 
-            <p className="mt-1 text-slate-300">&gt; Compiling TypeScript...</p>
-
-            <p className="mt-1 text-indigo-400">
-              &gt; Running deployment pipeline...
-            </p>
-          </>
-        )}
-
-        {deployment.status === "SUCCESS" && (
-          <>
-            <p className="text-emerald-400">
-              &gt; Build completed successfully
-            </p>
-
-            <p className="mt-1 text-emerald-400">&gt; Deployment is live</p>
-          </>
-        )}
-
-        {deployment.status === "FAILED" && (
-          <>
-            <p className="text-red-400">&gt; Deployment failed</p>
-
-            <p className="mt-1 text-red-300">
-              &gt; Pipeline exited with an error
-            </p>
-          </>
-        )}
+          {new Date(eventDate).toLocaleString()}
+        </div>
       </div>
-
-      {deployment.durationMs !== null && (
-        <p className="mt-4 text-sm text-slate-400">
-          Completed in{" "}
-          <span className="text-white">
-            {(deployment.durationMs / 1000).toFixed(2)}s
-          </span>
-        </p>
-      )}
     </section>
   );
+}
+
+type DeploymentDetailProps = {
+  label: string;
+  value: string;
+  monospace?: boolean;
+};
+
+function DeploymentDetail({
+  label,
+  value,
+  monospace = false,
+}: DeploymentDetailProps) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+      <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
+
+      <p
+        className={`mt-2 truncate text-sm text-slate-200 ${
+          monospace ? "font-mono" : ""
+        }`}
+        title={value}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatDuration(durationMs: number) {
+  const totalSeconds = durationMs / 1000;
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds.toFixed(2)}s`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+
+  return `${minutes}m ${seconds}s`;
 }
 
 export default DeploymentPipeline;

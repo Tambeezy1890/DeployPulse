@@ -66,6 +66,7 @@ externalId String?
   durationMs    Int?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  externalUpdatedAt DateTime?
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

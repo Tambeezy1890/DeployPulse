@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createDeployment,
   getProjectDeployments,
+  deleteDeployment,
 } from "../controller/deployment.controller.js";
 import {
   createDeploymentValidator,
@@ -30,5 +31,6 @@ projectDeploymentRouter.post(
   validateRequest,
   createDeployment,
 );
+projectDeploymentRouter.delete("/:deploymentId", deleteDeployment);
 
 export default projectDeploymentRouter;

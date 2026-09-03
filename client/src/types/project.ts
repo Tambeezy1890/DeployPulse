@@ -12,6 +12,7 @@ export interface Project {
   slug: string;
   description: string | null;
   repository: string | null;
+  githubRepoFullName: string | null;
   provider: Provider | null;
   healthCheckUrl: string | null;
   monitoringEnabled: boolean;

@@ -3,6 +3,15 @@ import type { Request, Response } from "express";
 import { GITHUB_WEBHOOK_SECRET } from "../../../../config/config.js";
 import { ApiError } from "../../../../utils/ApiError.js";
 import { verifyGitHubSignature } from "../utils/verifyGitHubSignature.js";
+import {
+  processGitHubDeployment,
+  processGitHubDeploymentStatus,
+} from "../services/githubWebhook.service.js";
+
+import type {
+  GitHubDeploymentPayload,
+  GitHubDeploymentStatusPayload,
+} from "../types/githubWebhook.types.js";
 
 export async function handleGitHubWebhook(req: Request, res: Response) {
   if (!GITHUB_WEBHOOK_SECRET) {
@@ -49,9 +58,32 @@ export async function handleGitHubWebhook(req: Request, res: Response) {
     });
   }
 
+  if (eventName === "deployment") {
+    const result = await processGitHubDeployment(
+      payload as GitHubDeploymentPayload,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "GitHub deployment processed.",
+      ...result,
+    });
+  }
+
+  if (eventName === "deployment_status") {
+    const result = await processGitHubDeploymentStatus(
+      payload as GitHubDeploymentStatusPayload,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "GitHub deployment status processed.",
+      ...result,
+    });
+  }
+
   return res.status(202).json({
     success: true,
-    message: `GitHub event '${eventName}' accepted.`,
-    payloadReceived: payload !== null,
+    message: `GitHub event '${eventName}' ignored.`,
   });
 }

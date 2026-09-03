@@ -10,22 +10,19 @@ export type Environment = "DEVELOPMENT" | "STAGING" | "PRODUCTION";
 export interface Deployment {
   id: string;
   projectId: string;
-  triggeredById: string;
-
+  triggeredById: string | null;
+  externalId: string | null;
   environment: Environment;
   status: DeploymentStatus;
-
   branch: string | null;
   commitSha: string | null;
   commitMessage: string | null;
-
+  source: "MANUAL" | "GITHUB";
   deploymentUrl: string | null;
   logsUrl: string | null;
-
   startedAt: string | null;
   finishedAt: string | null;
   durationMs: number | null;
-
   createdAt: string;
   updatedAt: string;
 }

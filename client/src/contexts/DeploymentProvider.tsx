@@ -83,13 +83,47 @@ export const DeploymentProvider = ({ children }: DeploymentProviderProps) => {
   };
 
   const deleteDeployment = async (projectId: string, deploymentId: string) => {
-    await deploymentService.deleteDeployment(projectId, deploymentId);
+    const deploymentToRestore = deployments.find(
+      (deployment) => deployment.id === deploymentId,
+    );
 
+    // Remove it from the UI immediately.
     setDeployments((previous) =>
       previous.filter((deployment) => deployment.id !== deploymentId),
     );
 
-    toast.success("Deployment deleted");
+    try {
+      await deploymentService.deleteDeployment(projectId, deploymentId);
+
+      setSelectedDeployment((current) =>
+        current?.id === deploymentId ? null : current,
+      );
+
+      toast.success("Deployment deleted");
+    } catch (error) {
+      console.error(error);
+
+      // Restore the deployment if the API request failed.
+      if (deploymentToRestore) {
+        setDeployments((previous) => {
+          const alreadyExists = previous.some(
+            (deployment) => deployment.id === deploymentToRestore.id,
+          );
+
+          if (alreadyExists) return previous;
+
+          return [deploymentToRestore, ...previous].sort(
+            (first, second) =>
+              new Date(second.createdAt).getTime() -
+              new Date(first.createdAt).getTime(),
+          );
+        });
+      }
+
+      toast.error("Failed to delete deployment");
+
+      throw error;
+    }
   };
 
   return (
