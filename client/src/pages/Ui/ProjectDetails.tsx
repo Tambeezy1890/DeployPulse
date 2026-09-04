@@ -10,6 +10,8 @@ import DeploymentHistory from "../../components/projectDetails/DeploymentHistory
 
 import { useProjectDetails } from "../../hooks/useProjectDetails";
 import DeleteDeploymentModal from "../../components/modals/DeleteDeploymentModal";
+import { useEffect } from "react";
+import { useDeployment } from "../../contexts/DeploymentContext";
 
 function ProjectDetails() {
   const { projectId } = useParams<{
@@ -31,6 +33,23 @@ function ProjectDetails() {
     cancelDeploymentDelete,
     confirmDeploymentDelete,
   } = useProjectDetails(projectId);
+  const { getDeployments } = useDeployment();
+  useEffect(() => {
+    if (!projectId) return;
+
+    const hasActiveDeployment = deployments.some(
+      (deployment) =>
+        deployment.status === "PENDING" || deployment.status === "RUNNING",
+    );
+
+    const pollingInterval = hasActiveDeployment ? 1_500 : 10_000;
+
+    const intervalId = window.setInterval(() => {
+      void getDeployments(projectId);
+    }, pollingInterval);
+
+    return () => window.clearInterval(intervalId);
+  }, [deployments, projectId, getDeployments]);
 
   if (projectLoading) {
     return (

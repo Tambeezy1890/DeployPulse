@@ -4,12 +4,18 @@ import asyncHandler from "../../../utils/AsyncHandler.js";
 import type { Request, Response, NextFunction } from "express";
 import { generateRefreshToken, generateToken } from "../utils/authToken.js";
 import bcrypt from "bcryptjs";
-import {
+import type {
   LoginBody,
   RefreshTokenPayload,
   RegisterBody,
 } from "../types/auth.types.js";
 import jwt from "jsonwebtoken";
+import {
+  clearRefreshTokenCookie,
+  setRefreshTokenCookie,
+} from "../utils/authCookie.js";
+
+import { REFRESH_TOKEN_SECRET } from "../../../config/config.js";
 
 export const registerUser = asyncHandler(
   async (req: Request<{}, {}, RegisterBody>, res: Response) => {
@@ -76,13 +82,7 @@ export const login = asyncHandler(
         refreshToken,
       },
     });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: "/",
-    });
+    setRefreshTokenCookie(res, refreshToken);
 
     return res.status(200).json({
       message: "User logged in successfully",
@@ -130,15 +130,13 @@ export const getUser = asyncHandler(
 );
 export const refreshAccessToken = asyncHandler(
   async (req: Request, res: Response) => {
-    const refreshToken = req.cookies?.refreshToken as string | undefined;
+    const presentedToken = req.cookies?.refreshToken as string | undefined;
 
-    if (!refreshToken) {
+    if (!presentedToken) {
       throw new ApiError("Refresh token is required.", 401);
     }
 
-    const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-
-    if (!refreshTokenSecret) {
+    if (!REFRESH_TOKEN_SECRET) {
       throw new ApiError("REFRESH_TOKEN_SECRET is not configured.", 500);
     }
 
@@ -146,10 +144,12 @@ export const refreshAccessToken = asyncHandler(
 
     try {
       decoded = jwt.verify(
-        refreshToken,
-        refreshTokenSecret,
+        presentedToken,
+        REFRESH_TOKEN_SECRET,
       ) as RefreshTokenPayload;
     } catch {
+      clearRefreshTokenCookie(res);
+
       throw new ApiError("Invalid or expired refresh token.", 401);
     }
 
@@ -159,12 +159,10 @@ export const refreshAccessToken = asyncHandler(
       },
     });
 
-    if (!user || !user.refreshToken) {
-      throw new ApiError("Refresh token is invalid.", 401);
-    }
+    if (!user || !user.refreshToken || user.refreshToken !== presentedToken) {
+      clearRefreshTokenCookie(res);
 
-    if (user.refreshToken !== refreshToken) {
-      throw new ApiError("Refresh token does not match.", 401);
+      throw new ApiError("Refresh token is invalid.", 401);
     }
 
     const accessToken = generateToken({
@@ -172,13 +170,25 @@ export const refreshAccessToken = asyncHandler(
       role: user.role,
     });
 
+    const nextRefreshToken = generateRefreshToken(user.id);
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        refreshToken: nextRefreshToken,
+      },
+    });
+
+    setRefreshTokenCookie(res, nextRefreshToken);
+
     return res.status(200).json({
       success: true,
       accessToken,
     });
   },
 );
-
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   const refreshToken = req.cookies?.refreshToken as string | undefined;
 
@@ -192,13 +202,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
       },
     });
   }
-
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-  });
+  clearRefreshTokenCookie(res);
 
   return res.status(200).json({
     success: true,

@@ -72,12 +72,14 @@ export function useProjectDetails(projectId: string | undefined) {
   const confirmDeploymentDelete = useCallback(async () => {
     if (!projectId || !deploymentIdToDelete) return;
 
+    const deploymentId = deploymentIdToDelete;
+
+    // Close the modal immediately.
+    setDeploymentIdToDelete(null);
+    setDeletingDeployment(true);
+
     try {
-      setDeletingDeployment(true);
-
-      await deleteDeployment(projectId, deploymentIdToDelete);
-
-      setDeploymentIdToDelete(null);
+      await deleteDeployment(projectId, deploymentId);
     } finally {
       setDeletingDeployment(false);
     }

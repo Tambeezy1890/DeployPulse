@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import type { Project } from "../../types/project";
 import type { User } from "../../types/user";
-
+import { formatDuration } from "../../utils/formatDuration";
 import { useDeployment } from "../../contexts/DeploymentContext";
 
 import StatusBadge from "../ui/StatusBadge";
@@ -112,9 +112,7 @@ function DeploymentModal({ project, user, onClose }: DeploymentModalProps) {
                     <p>
                       Duration:{" "}
                       <span className="text-white">
-                        {deployment.durationMs !== null
-                          ? `${(deployment.durationMs / 1000).toFixed(2)}s`
-                          : "—"}
+                        {formatDuration(deployment.durationMs)}
                       </span>
                     </p>
 

@@ -1,5 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+
 import { Toaster } from "react-hot-toast";
+
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -23,21 +26,20 @@ function App() {
       />
 
       <Routes>
-        {/* Default route */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* Auth routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
-        {/* App routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/projects/:projectId" element={<ProjectDetails />} />
-        <Route path="/projects/new" element={<CreateProject />} />
+          <Route path="/projects/new" element={<CreateProject />} />
 
-        {/* Anything unknown */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/projects/:projectId" element={<ProjectDetails />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
