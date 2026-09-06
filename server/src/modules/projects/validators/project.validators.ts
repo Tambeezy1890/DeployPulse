@@ -39,6 +39,10 @@ export const createProjectValidator = [
     .optional()
     .isIn(providerValues)
     .withMessage(`Provider must be one of: ${providerValues.join(", ")}.`),
+  body("githubRepositoryId")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("GitHub repository ID must be a string."),
 ];
 
 export const updateProjectValidator = [

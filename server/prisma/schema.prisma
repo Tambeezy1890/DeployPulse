@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id                   String       @id @default(cuid())
-  email                String       @unique
+  id                   String               @id @default(cuid())
+  email                String               @unique
   name                 String
   passwordHash         String
-  refreshToken         String?      @unique
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-  role                 Role         @default(USER)
+  refreshToken         String?              @unique
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  role                 Role                 @default(USER)
   projects             Project[]
+  githubInstallations  GitHubInstallation[]
   triggeredDeployments Deployment[]
 }
 
 model Project {
-  id          String       @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -30,42 +31,45 @@ model Project {
 
   githubRepoFullName String?
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  ownerId     String
-  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  deployments Deployment[]
-  healthCheckUrl String?
-  monitoringEnabled  Boolean      @default(false)
-  healthChecks HealthCheck[]
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  ownerId                String
+  owner                  User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  deployments            Deployment[]
+  healthCheckUrl         String?
+  monitoringEnabled      Boolean       @default(false)
+  healthChecks           HealthCheck[]
   monitorStatus          MonitorStatus @default(PENDING)
-consecutiveFailures    Int           @default(0)
-consecutiveSuccesses   Int           @default(0)
-monitorStatusChangedAt DateTime?
-lastCheckedAt          DateTime?
+  consecutiveFailures    Int           @default(0)
+  consecutiveSuccesses   Int           @default(0)
+  monitorStatusChangedAt DateTime?
+  lastCheckedAt          DateTime?
+  githubRepositoryId     String?
 
+  githubRepository GitHubRepository? @relation(fields: [githubRepositoryId], references: [id], onDelete: SetNull)
 
-@@index([githubRepoFullName])
   @@unique([ownerId, slug])
+  @@index([githubRepositoryId])
+  @@index([githubRepoFullName])
   @@index([ownerId])
 }
 
 model Deployment {
-  id            String           @id @default(cuid())
-  status        DeploymentStatus @default(PENDING)
-  environment   Environment      @default(PRODUCTION)
-  source     DeploymentSource @default(MANUAL)
-externalId String?
-  branch        String?
-  commitSha     String?
-  commitMessage String?
-  deploymentUrl String?
-  logsUrl       String?
-  startedAt     DateTime?         @default(now())
-  finishedAt    DateTime?
-  durationMs    Int?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id                String           @id @default(cuid())
+  status            DeploymentStatus @default(PENDING)
+  environment       Environment      @default(PRODUCTION)
+  source            DeploymentSource @default(MANUAL)
+  externalId        String?
+  branch            String?
+  commitSha         String?
+  commitMessage     String?
+  deploymentUrl     String?
+  logsUrl           String?
+  startedAt         DateTime?        @default(now())
+  finishedAt        DateTime?
+  durationMs        Int?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   externalUpdatedAt DateTime?
 
   projectId String
@@ -78,12 +82,12 @@ externalId String?
   @@index([projectId])
   @@index([triggeredById])
   @@index([status])
-  
 }
+
 model HealthCheck {
-  id             String       @id @default(cuid())
-  projectId      String
-  project        Project      @relation(fields: [projectId],references: [id],onDelete: Cascade)
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   checkedUrl     String
   status         HealthStatus
@@ -93,6 +97,47 @@ model HealthCheck {
   checkedAt      DateTime     @default(now())
 
   @@index([projectId, checkedAt])
+}
+
+model GitHubInstallation {
+  id                   String    @id @default(cuid())
+  githubInstallationId String    @unique
+  githubAccountId      String
+  githubAccountLogin   String
+  githubAccountType    String
+  repositorySelection  String
+  suspendedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  repositories GitHubRepository[]
+
+  @@index([ownerId])
+  @@index([githubAccountLogin])
+}
+
+model GitHubRepository {
+  id                 String   @id @default(cuid())
+  githubRepositoryId String   @unique
+  name               String
+  fullName           String
+  htmlUrl            String
+  private            Boolean
+  defaultBranch      String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  installationId String
+  installation   GitHubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  projects Project[]
+
+  @@index([installationId])
+  @@index([fullName])
 }
 
 enum HealthStatus {
@@ -127,6 +172,7 @@ enum Role {
   USER
   ADMIN
 }
+
 enum MonitorStatus {
   PENDING
   HEALTHY
@@ -134,6 +180,7 @@ enum MonitorStatus {
   DOWN
   RECOVERING
 }
+
 enum DeploymentSource {
   MANUAL
   GITHUB

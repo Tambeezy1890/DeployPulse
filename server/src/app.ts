@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import projectRouter from "./modules/projects/routes/project.route.js";
 import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
 import githubWebhookRouter from "./modules/webhooks/github/routes/githubWebhook.route.js";
+import githubInstallationRouter from "./modules/webhooks/github/routes/githubInstallation.route.js";
 
 const app: Express = express();
 
@@ -20,6 +21,8 @@ app.use("/api/webhooks/github", githubWebhookRouter);
 app.use(express.json());
 
 app.use(cookieParser());
+
+app.use("/api/github", githubInstallationRouter);
 
 app.get("/", (_req: Request, res: Response) => {
   res.send("Server is now live");

@@ -17,6 +17,7 @@ export interface UpdateProjectBody {
   provider?: Provider | null;
   healthCheckUrl?: string | null;
   monitoringEnabled?: boolean;
+  githubRepositoryId?: string | null;
 }
 
 export interface ProjectParams extends ParamsDictionary {

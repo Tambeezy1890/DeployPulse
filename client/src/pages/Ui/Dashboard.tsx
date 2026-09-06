@@ -18,6 +18,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import deploymentService from "../../services/deploymentServices";
 
 import type { Deployment } from "../../types/deployment";
+import GitHubIntegrationPanel from "../../components/dashboard/GitHubIntegrationPanel";
 
 const DASHBOARD_POLL_INTERVAL = 15_000;
 
@@ -278,7 +279,7 @@ function Dashboard() {
             onSave={updateProject}
           />
         )}
-
+        <GitHubIntegrationPanel />
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Total Projects" value={projects.length} />
 

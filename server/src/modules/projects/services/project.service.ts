@@ -115,29 +115,63 @@ export const updateProjectService = async (
       );
     }
   }
-  const nextRepository =
+
+  let connectedRepository:
+    | {
+        id: string;
+        fullName: string;
+        htmlUrl: string;
+      }
+    | null
+    | undefined;
+
+  /*
+   * undefined = repository selection was not changed
+   * null = disconnect the current GitHub repository
+   * string = connect the selected GitHub repository
+   */
+  if (data.githubRepositoryId === null) {
+    connectedRepository = null;
+  }
+
+  if (typeof data.githubRepositoryId === "string") {
+    connectedRepository = await prisma.gitHubRepository.findFirst({
+      where: {
+        id: data.githubRepositoryId,
+        active: true,
+        installation: {
+          ownerId,
+        },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        htmlUrl: true,
+      },
+    });
+
+    if (!connectedRepository) {
+      throw new ApiError(
+        "GitHub repository was not found or does not belong to you.",
+        404,
+      );
+    }
+  }
+
+  const nextManualRepository =
     data.repository === undefined ? project.repository : data.repository;
+
   return prisma.project.update({
     where: {
       id: projectId,
     },
+
     data: {
       name: data.name !== undefined ? data.name.trim() : undefined,
+
       slug,
 
       description: data.description === null ? null : data.description?.trim(),
-
-      repository:
-        data.repository === undefined
-          ? undefined
-          : data.repository === null
-            ? null
-            : data.repository.trim(),
-
-      githubRepoFullName:
-        data.repository === undefined
-          ? undefined
-          : getGitHubRepoFullName(nextRepository),
 
       provider: data.provider,
 
@@ -145,10 +179,52 @@ export const updateProjectService = async (
         data.healthCheckUrl === null ? null : data.healthCheckUrl?.trim(),
 
       monitoringEnabled: data.monitoringEnabled,
+
+      /*
+       * When githubRepositoryId is provided, the selected GitHub
+       * repository becomes the source of truth.
+       */
+      ...(data.githubRepositoryId !== undefined
+        ? {
+            githubRepository: connectedRepository
+              ? {
+                  connect: {
+                    id: connectedRepository.id,
+                  },
+                }
+              : {
+                  disconnect: true,
+                },
+
+            repository: connectedRepository?.htmlUrl ?? null,
+
+            githubRepoFullName:
+              connectedRepository?.fullName.toLowerCase() ?? null,
+          }
+        : {
+            /*
+             * Keep supporting manually entered repository URLs
+             * until the create-project page is converted too.
+             */
+            repository:
+              data.repository === undefined
+                ? undefined
+                : data.repository === null
+                  ? null
+                  : data.repository.trim(),
+
+            githubRepoFullName:
+              data.repository === undefined
+                ? undefined
+                : getGitHubRepoFullName(nextManualRepository),
+          }),
+    },
+
+    include: {
+      githubRepository: true,
     },
   });
 };
-
 export const deleteProjectService = async (
   projectId: string,
   ownerId: string,

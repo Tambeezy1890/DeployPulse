@@ -9,6 +9,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Ui/Dashboard";
 import ProjectDetails from "./pages/Ui/ProjectDetails";
 import CreateProject from "./pages/Ui/CreateProject";
+import GitHubCallback from "./pages/Ui/GitHubCallback";
 
 function App() {
   return (
@@ -37,6 +38,10 @@ function App() {
           <Route path="/projects/new" element={<CreateProject />} />
 
           <Route path="/projects/:projectId" element={<ProjectDetails />} />
+          <Route
+            path="/settings/integrations/github/callback"
+            element={<GitHubCallback />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

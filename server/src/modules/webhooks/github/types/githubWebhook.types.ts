@@ -7,6 +7,10 @@ export interface GitHubDeployment {
   created_at: string;
   updated_at: string;
 }
+export interface GitHubInstallationReference {
+  id: number;
+  node_id?: string;
+}
 
 export interface GitHubRepository {
   full_name: string;
@@ -16,6 +20,7 @@ export interface GitHubRepository {
 export interface GitHubDeploymentPayload {
   deployment: GitHubDeployment;
   repository: GitHubRepository;
+  installation?: GitHubInstallationReference;
 }
 
 export interface GitHubDeploymentStatusPayload {
@@ -31,7 +36,6 @@ export interface GitHubDeploymentStatusPayload {
       | "pending"
       | "queued"
       | "success";
-
     description: string | null;
     environment: string;
     environment_url: string | null;
@@ -42,4 +46,5 @@ export interface GitHubDeploymentStatusPayload {
   };
 
   repository: GitHubRepository;
+  installation?: GitHubInstallationReference;
 }
