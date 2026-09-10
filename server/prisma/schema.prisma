@@ -39,6 +39,7 @@ model Project {
   healthCheckUrl         String?
   monitoringEnabled      Boolean       @default(false)
   healthChecks           HealthCheck[]
+  incidents              Incident[]
   monitorStatus          MonitorStatus @default(PENDING)
   consecutiveFailures    Int           @default(0)
   consecutiveSuccesses   Int           @default(0)
@@ -97,6 +98,59 @@ model HealthCheck {
   checkedAt      DateTime     @default(now())
 
   @@index([projectId, checkedAt])
+}
+
+model Incident {
+  id String @id @default(cuid())
+
+  title    String
+  summary  String?
+  status   IncidentStatus   @default(OPEN)
+  severity IncidentSeverity
+  cause    IncidentCause
+
+  openedAt       DateTime  @default(now())
+  lastActivityAt DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  // Only open incidents have this value.
+  // PostgreSQL allows multiple null values in a unique column.
+  activeKey String? @unique
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  events IncidentEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([projectId, status])
+  @@index([severity])
+  @@index([openedAt])
+}
+
+model IncidentEvent {
+  id String @id @default(cuid())
+
+  type    IncidentEventType
+  message String
+
+  // ID of the deployment or health check that produced the event.
+  sourceId String?
+
+  // Prevents repeated webhooks from adding duplicate timeline events.
+  dedupeKey String? @unique
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
 }
 
 model GitHubInstallation {
@@ -184,4 +238,31 @@ enum MonitorStatus {
 enum DeploymentSource {
   MANUAL
   GITHUB
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum IncidentSeverity {
+  WARNING
+  CRITICAL
+}
+
+enum IncidentCause {
+  DEPLOYMENT
+  HEALTH
+  COMBINED
+}
+
+enum IncidentEventType {
+  DEPLOYMENT_FAILED
+  HEALTH_DEGRADED
+  HEALTH_DOWN
+  HEALTH_RECOVERING
+  HEALTHY
+  INCIDENT_OPENED
+  INCIDENT_ESCALATED
+  INCIDENT_RESOLVED
 }

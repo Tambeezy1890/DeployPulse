@@ -1,7 +1,10 @@
 import prisma from "../../../config/prisma.js";
 import { ApiError } from "../../../utils/ApiError.js";
-
 import { getOwnedProjectService } from "../../projects/services/project.service.js";
+import {
+  recordDeploymentFailure,
+  recordDeploymentSuccess,
+} from "../../incidents/services/incidentCorrelation.service.js";
 
 import type {
   CreateDeploymentBody,
@@ -134,23 +137,43 @@ export const updateDeploymentStatusService = async (
     }
   }
 
-  return prisma.deployment.update({
+  const updatedDeployment = await prisma.deployment.update({
     where: {
       id: deploymentId,
     },
 
     data: {
       status: data.status,
-
       deploymentUrl: data.deploymentUrl?.trim(),
-
       logsUrl: data.logsUrl?.trim(),
-
       startedAt,
       finishedAt,
       durationMs,
     },
   });
+
+  if (updatedDeployment.status === "FAILED") {
+    await recordDeploymentFailure({
+      projectId: updatedDeployment.projectId,
+      deploymentId: updatedDeployment.id,
+      message:
+        updatedDeployment.commitMessage ||
+        `Deployment from branch ${
+          updatedDeployment.branch ?? "unknown"
+        } failed.`,
+      branch: updatedDeployment.branch,
+      environment: updatedDeployment.environment,
+    });
+  }
+
+  if (updatedDeployment.status === "SUCCESS") {
+    await recordDeploymentSuccess({
+      projectId: updatedDeployment.projectId,
+      deploymentId: updatedDeployment.id,
+    });
+  }
+
+  return updatedDeployment;
 };
 
 export const deleteDeploymentService = async (
@@ -213,7 +236,7 @@ async function simulateDeployment(deploymentId: string) {
             ? finishedAt.getTime() - runningDeployment.startedAt.getTime()
             : null;
 
-          await prisma.deployment.update({
+          const completedDeployment = await prisma.deployment.update({
             where: {
               id: deploymentId,
             },
@@ -224,6 +247,27 @@ async function simulateDeployment(deploymentId: string) {
               durationMs,
             },
           });
+
+          if (completedDeployment.status === "FAILED") {
+            await recordDeploymentFailure({
+              projectId: completedDeployment.projectId,
+              deploymentId: completedDeployment.id,
+              message:
+                completedDeployment.commitMessage ||
+                `Simulated deployment from branch ${
+                  completedDeployment.branch ?? "unknown"
+                } failed.`,
+              branch: completedDeployment.branch,
+              environment: completedDeployment.environment,
+            });
+          }
+
+          if (completedDeployment.status === "SUCCESS") {
+            await recordDeploymentSuccess({
+              projectId: completedDeployment.projectId,
+              deploymentId: completedDeployment.id,
+            });
+          }
         } catch (error) {
           console.error("Deployment simulation failed:", error);
         }

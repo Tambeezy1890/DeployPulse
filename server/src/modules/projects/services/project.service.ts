@@ -14,7 +14,6 @@ const generateSlug = (name: string): string => {
     .replace(/[^a-z0-9-]/g, "")
     .replace(/^-+|-+$/g, "");
 };
-
 export const createProjectService = async (
   ownerId: string,
   data: CreateProjectBody,
@@ -38,17 +37,66 @@ export const createProjectService = async (
     throw new ApiError("You already have a project with this name.", 409);
   }
 
+  const githubRepository = data.githubRepositoryId
+    ? await prisma.gitHubRepository.findFirst({
+        where: {
+          id: data.githubRepositoryId,
+          active: true,
+          installation: {
+            ownerId,
+          },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          htmlUrl: true,
+        },
+      })
+    : null;
+
+  if (data.githubRepositoryId && !githubRepository) {
+    throw new ApiError(
+      "GitHub repository was not found or does not belong to you.",
+      404,
+    );
+  }
+
+  const manualRepository = data.repository?.trim() || null;
+  const healthCheckUrl = data.healthCheckUrl?.trim() || null;
+
   return prisma.project.create({
     data: {
       name: data.name.trim(),
       slug,
-      description: data.description?.trim(),
-      repository: data.repository?.trim(),
-      githubRepoFullName: getGitHubRepoFullName(data.repository),
+
+      description: data.description?.trim() || null,
+
+      /*
+       * A connected GitHub repository is the source of truth.
+       * Manual repository URLs remain supported as a fallback.
+       */
+      repository: githubRepository?.htmlUrl ?? manualRepository,
+
+      githubRepoFullName:
+        githubRepository?.fullName.toLowerCase() ??
+        getGitHubRepoFullName(manualRepository),
+
+      githubRepositoryId: githubRepository?.id ?? null,
+
       provider: data.provider,
       ownerId,
-      healthCheckUrl: data.healthCheckUrl?.trim(),
-      monitoringEnabled: data.monitoringEnabled ?? false,
+
+      healthCheckUrl,
+
+      /*
+       * Monitoring cannot be enabled without an endpoint.
+       */
+      monitoringEnabled:
+        Boolean(healthCheckUrl) && (data.monitoringEnabled ?? false),
+    },
+
+    include: {
+      githubRepository: true,
     },
   });
 };

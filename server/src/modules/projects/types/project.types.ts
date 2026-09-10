@@ -8,6 +8,7 @@ export interface CreateProjectBody {
   repository?: string;
   provider?: Provider;
   monitoringEnabled?: boolean;
+  githubRepositoryId?: string;
 }
 
 export interface UpdateProjectBody {

@@ -4,6 +4,10 @@ import type {
   DeploymentStatus,
   Environment,
 } from "../../../../../generated/prisma/enums.js";
+import {
+  recordDeploymentFailure,
+  recordDeploymentSuccess,
+} from "../../../incidents/services/incidentCorrelation.service.js";
 
 import type {
   GitHubDeploymentPayload,
@@ -141,7 +145,7 @@ export async function processGitHubDeploymentStatus(
 
     if (
       existingDeployment?.externalUpdatedAt &&
-      existingDeployment.externalUpdatedAt > eventTime
+      existingDeployment.externalUpdatedAt >= eventTime
     ) {
       continue;
     }
@@ -155,7 +159,7 @@ export async function processGitHubDeploymentStatus(
       ? finishedAt.getTime() - startedAt.getTime()
       : null;
 
-    await prisma.deployment.upsert({
+    const updatedDeployment = await prisma.deployment.upsert({
       where: {
         projectId_source_externalId: {
           projectId: project.id,
@@ -220,6 +224,29 @@ export async function processGitHubDeploymentStatus(
         externalUpdatedAt: eventTime,
       },
     });
+    const statusChanged =
+      existingDeployment?.status !== updatedDeployment.status;
+
+    if (statusChanged && updatedDeployment.status === "FAILED") {
+      await recordDeploymentFailure({
+        projectId: updatedDeployment.projectId,
+        deploymentId: updatedDeployment.id,
+        message:
+          updatedDeployment.commitMessage ||
+          `GitHub deployment from branch ${
+            updatedDeployment.branch ?? "unknown"
+          } failed.`,
+        branch: updatedDeployment.branch,
+        environment: updatedDeployment.environment,
+      });
+    }
+
+    if (statusChanged && updatedDeployment.status === "SUCCESS") {
+      await recordDeploymentSuccess({
+        projectId: updatedDeployment.projectId,
+        deploymentId: updatedDeployment.id,
+      });
+    }
 
     deploymentsAffected += 1;
   }

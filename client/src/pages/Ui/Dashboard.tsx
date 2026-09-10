@@ -1,36 +1,43 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+
 import { useNavigate } from "react-router-dom";
+
 import { Plus, Search } from "lucide-react";
 
+import toast from "react-hot-toast";
+
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import ProjectCard from "../../components/dashboard/ProjectCard";
 import MetricCard from "../../components/dashboard/MetricCard";
+import ProjectCard from "../../components/dashboard/ProjectCard";
 import AttentionRequired from "../../components/dashboard/AttentionRequired";
+import GitHubIntegrationPanel from "../../components/dashboard/GitHubIntegrationPanel";
+
 import DeploymentModal from "../../components/modals/DeploymentModal";
 import EditProjectModal from "../../components/modals/EditProjectModal";
 
+import IncidentPanel from "../../components/incidents/IncidentPanel";
+import IncidentDetailsModal from "../../components/incidents/IncidentDetailsModal";
+
 import { useDeploymentModal } from "../../hooks/useDeploymentModal";
 import { useEditProjectModal } from "../../hooks/useEditProjectModal";
+import { useDashboardDeployments } from "../../hooks/useDashboardDeployments";
+import { useDashboardView } from "../../hooks/useDashboardView";
+import { useIncidents } from "../../hooks/useIncidents";
 
 import { useProject } from "../../contexts/ProjectContext";
 import { useAuth } from "../../contexts/AuthContext";
 
-import deploymentService from "../../services/deploymentServices";
-
-import type { Deployment } from "../../types/deployment";
-import GitHubIntegrationPanel from "../../components/dashboard/GitHubIntegrationPanel";
-
-const DASHBOARD_POLL_INTERVAL = 15_000;
+import type { Incident } from "../../types/incident";
 
 function Dashboard() {
-  const [search, setSearch] = useState("");
-  const [loadedDeployments, setLoadedDeployments] = useState<Deployment[]>([]);
-  const [deploymentsLoading, setDeploymentsLoading] = useState(false);
-  const [hasLoadedDeployments, setHasLoadedDeployments] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-
   const navigate = useNavigate();
+
+  const [search, setSearch] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
+    null,
+  );
 
   const { user, logout } = useAuth();
 
@@ -42,194 +49,99 @@ function Dashboard() {
     updateProject,
   } = useProject();
 
-  const { projectToEdit, openEditProjectModal, closeEditProjectModal } =
-    useEditProjectModal();
-
   const { deploymentModal, openDeploymentModal, closeDeploymentModal } =
     useDeploymentModal({ user });
 
-  /*
-   * Load the authenticated user's projects when the dashboard opens.
-   */
+  const {
+    projectToEdit,
+    isEditProjectModalOpen,
+    openEditProjectModal,
+    closeEditProjectModal,
+  } = useEditProjectModal();
+
+  const {
+    deployments,
+    loading: deploymentsLoading,
+    hasLoaded: hasLoadedDeployments,
+    lastUpdatedAt,
+    removeProjectDeployments,
+  } = useDashboardDeployments(projects);
+
+  const {
+    openIncidents,
+    loading: incidentsLoading,
+    resolvingId,
+    loadIncidents,
+    resolveIncident,
+  } = useIncidents();
+
+  const { filteredProjects, metrics } = useDashboardView(
+    projects,
+    deployments,
+    search,
+  );
+
   useEffect(() => {
     void getProjects();
   }, [getProjects]);
 
-  /*
-   * Load deployment data immediately and then refresh every 15 seconds.
-   *
-   * Polling pauses while the browser tab is hidden and immediately refreshes
-   * when the user returns. requestInProgress prevents overlapping requests.
-   */
-  useEffect(() => {
-    if (projects.length === 0) {
+  const openProject = (projectId: string) => {
+    navigate(`/projects/${projectId}`);
+  };
+
+  const handleDeleteProject = async (
+    projectId: string,
+    projectName: string,
+  ) => {
+    const confirmed = window.confirm(
+      `Delete "${projectName}"? This will also delete its deployments, health checks, and incidents.`,
+    );
+
+    if (!confirmed) {
       return;
     }
 
-    let cancelled = false;
-    let requestInProgress = false;
-
-    const loadDeployments = async () => {
-      if (
-        cancelled ||
-        requestInProgress ||
-        document.visibilityState === "hidden"
-      ) {
-        return;
-      }
-
-      requestInProgress = true;
-
-      if (!hasLoadedDeployments) {
-        setDeploymentsLoading(true);
-      }
-
-      try {
-        const results = await Promise.allSettled(
-          projects.map((project) =>
-            deploymentService.getDeployments(project.id),
-          ),
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        const successfulResults = results
-          .filter(
-            (result): result is PromiseFulfilledResult<Deployment[]> =>
-              result.status === "fulfilled",
-          )
-          .flatMap((result) => result.value ?? []);
-
-        setLoadedDeployments(successfulResults);
-        setHasLoadedDeployments(true);
-        setLastUpdatedAt(new Date());
-
-        const failedRequestCount = results.filter(
-          (result) => result.status === "rejected",
-        ).length;
-
-        if (failedRequestCount > 0) {
-          console.error(
-            `Failed to update deployments for ${failedRequestCount} project(s).`,
-          );
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to refresh dashboard deployments:", error);
-        }
-      } finally {
-        requestInProgress = false;
-
-        if (!cancelled) {
-          setDeploymentsLoading(false);
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void loadDeployments();
-      }
-    };
-
-    void loadDeployments();
-
-    const intervalId = window.setInterval(() => {
-      void loadDeployments();
-    }, DASHBOARD_POLL_INTERVAL);
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [projects, hasLoadedDeployments]);
-
-  /*
-   * If all projects are removed, hide deployments from the previous project
-   * list without synchronously updating state inside an effect.
-   */
-  const allDeployments = useMemo(
-    () => (projects.length === 0 ? [] : loadedDeployments),
-    [projects.length, loadedDeployments],
-  );
-
-  const filteredProjects = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
-
-    if (!searchValue) {
-      return projects;
-    }
-
-    return projects.filter((project) => {
-      const searchableValues = [
-        project.name,
-        project.description,
-        project.repository,
-        project.provider,
-      ];
-
-      return searchableValues.some((value) =>
-        value?.toLowerCase().includes(searchValue),
-      );
-    });
-  }, [projects, search]);
-
-  const dashboardMetrics = useMemo(() => {
-    const failedDeployments = allDeployments.filter(
-      (deployment) => deployment.status === "FAILED",
-    ).length;
-
-    const healthyProjects = projects.filter((project) => {
-      const latestDeployment = allDeployments
-        .filter((deployment) => deployment.projectId === project.id)
-        .sort(
-          (first, second) =>
-            new Date(second.createdAt).getTime() -
-            new Date(first.createdAt).getTime(),
-        )[0];
-
-      return latestDeployment?.status === "SUCCESS";
-    }).length;
-
-    return {
-      totalDeployments: allDeployments.length,
-      failedDeployments,
-      healthyProjects,
-    };
-  }, [projects, allDeployments]);
-
-  const handleDeleteProject = async (projectId: string) => {
     try {
       await deleteProject(projectId);
 
-      setLoadedDeployments((currentDeployments) =>
-        currentDeployments.filter(
-          (deployment) => deployment.projectId !== projectId,
-        ),
-      );
+      removeProjectDeployments(projectId);
+
+      if (selectedIncident?.projectId === projectId) {
+        setSelectedIncident(null);
+      }
+
+      await loadIncidents();
+
+      toast.success("Project deleted");
     } catch (error) {
       console.error("Failed to delete project:", error);
+      toast.error("Could not delete project");
+    }
+  };
+
+  const handleResolveIncident = async (incidentId: string) => {
+    try {
+      await resolveIncident(incidentId);
+
+      setSelectedIncident(null);
+
+      toast.success("Incident resolved");
+    } catch (error) {
+      console.error("Failed to resolve incident:", error);
+      toast.error("Could not resolve incident");
     }
   };
 
   const handleLogout = async () => {
-    if (loggingOut) {
-      return;
-    }
-
-    setLoggingOut(true);
-
     try {
+      setLoggingOut(true);
+
       await logout();
-      navigate("/login", { replace: true });
+
+      navigate("/login");
     } catch (error) {
       console.error("Failed to log out:", error);
+      toast.error("Could not log out");
     } finally {
       setLoggingOut(false);
     }
@@ -238,13 +150,7 @@ function Dashboard() {
   if (projectsLoading && projects.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-slate-700 border-t-indigo-500" />
-
-          <p className="mt-4 text-sm text-slate-400">
-            Loading your dashboard...
-          </p>
-        </div>
+        <p className="text-sm text-slate-400">Loading dashboard...</p>
       </main>
     );
   }
@@ -254,66 +160,53 @@ function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <DashboardHeader
           user={user}
           loggingOut={loggingOut}
           onLogout={handleLogout}
         />
 
-        {deploymentModal.show &&
-          deploymentModal.project &&
-          deploymentModal.user && (
-            <DeploymentModal
-              project={deploymentModal.project}
-              user={deploymentModal.user}
-              onClose={closeDeploymentModal}
-            />
-          )}
-
-        {projectToEdit && (
-          <EditProjectModal
-            project={projectToEdit}
-            onClose={closeEditProjectModal}
-            onSave={updateProject}
-          />
-        )}
         <GitHubIntegrationPanel />
-        <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Total Projects" value={projects.length} />
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Total Projects" value={metrics.totalProjects} />
 
           <MetricCard
             label="Successful Projects"
-            value={dashboardMetrics.healthyProjects}
+            value={metrics.healthyProjects}
           />
 
           <MetricCard
             label="Failed Deployments"
-            value={dashboardMetrics.failedDeployments}
+            value={metrics.failedDeployments}
           />
 
           <MetricCard
             label="Total Deployments"
-            value={
-              deploymentsLoading && !hasLoadedDeployments
-                ? "..."
-                : dashboardMetrics.totalDeployments
-            }
+            value={metrics.totalDeployments}
           />
         </section>
 
-        <AttentionRequired
-          projects={projects}
-          deployments={allDeployments}
-          onOpenProject={(projectId) => navigate(`/projects/${projectId}`)}
+        <IncidentPanel
+          incidents={openIncidents}
+          loading={incidentsLoading}
+          onSelectIncident={setSelectedIncident}
+          onOpenProject={openProject}
         />
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <AttentionRequired
+          projects={projects}
+          deployments={deployments}
+          onOpenProject={openProject}
+        />
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-semibold">Projects</h2>
+                <h2 className="text-2xl font-bold text-white">Projects</h2>
 
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
@@ -321,7 +214,7 @@ function Dashboard() {
                 </div>
               </div>
 
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-slate-400">
                 Monitor project health and deployment activity.
               </p>
 
@@ -340,16 +233,16 @@ function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/projects/new")}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
             >
               <Plus size={18} />
               Create Project
             </button>
           </div>
 
-          <div className="relative mb-6">
+          <div className="relative mt-6">
             <Search
-              size={18}
+              size={20}
               className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
             />
 
@@ -358,51 +251,84 @@ function Dashboard() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by name, repository or provider..."
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-11 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-12 pr-4 text-white outline-none transition placeholder:text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
 
-          <div className="space-y-4">
-            {filteredProjects.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-10 text-center">
-                <p className="text-slate-300">
-                  {projects.length === 0
-                    ? "You haven't created a project yet."
-                    : "No projects match your search."}
-                </p>
+          {deploymentsLoading && !hasLoadedDeployments ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-slate-400">Loading deployments...</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-slate-700 px-6 py-14 text-center">
+              <h3 className="font-semibold text-white">
+                {projects.length === 0
+                  ? "No projects yet"
+                  : "No matching projects"}
+              </h3>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  {projects.length === 0
-                    ? "Connect your first application to begin monitoring deployments."
-                    : "Try searching with a different project name or repository."}
-                </p>
+              <p className="mt-2 text-sm text-slate-400">
+                {projects.length === 0
+                  ? "Create your first project to begin monitoring deployments."
+                  : "Try searching with a different project or repository name."}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {filteredProjects.map((project) => {
+                const projectDeployments = deployments.filter(
+                  (deployment) => deployment.projectId === project.id,
+                );
 
-                {projects.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/projects/new")}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium transition hover:bg-indigo-500"
-                  >
-                    <Plus size={17} />
-                    Create your first project
-                  </button>
-                )}
-              </div>
-            ) : (
-              filteredProjects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onQuickView={() => openDeploymentModal(project)}
-                  onOpen={() => navigate(`/projects/${project.id}`)}
-                  onEdit={() => openEditProjectModal(project)}
-                  onDelete={() => void handleDeleteProject(project.id)}
-                />
-              ))
-            )}
-          </div>
+                return (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    deployments={projectDeployments}
+                    onQuickView={() => openDeploymentModal(project)}
+                    onOpen={() => openProject(project.id)}
+                    onEdit={() => openEditProjectModal(project)}
+                    onDelete={() =>
+                      void handleDeleteProject(project.id, project.name)
+                    }
+                  />
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
+
+      {deploymentModal.show && (
+        <DeploymentModal
+          project={deploymentModal.project}
+          user={deploymentModal.user}
+          onClose={closeDeploymentModal}
+        />
+      )}
+
+      {isEditProjectModalOpen && projectToEdit && (
+        <EditProjectModal
+          project={projectToEdit}
+          onClose={closeEditProjectModal}
+          onSave={updateProject}
+        />
+      )}
+
+      {selectedIncident && (
+        <IncidentDetailsModal
+          incident={selectedIncident}
+          resolving={resolvingId === selectedIncident.id}
+          onClose={() => setSelectedIncident(null)}
+          onResolve={() => void handleResolveIncident(selectedIncident.id)}
+          onOpenProject={() => {
+            const projectId = selectedIncident.projectId;
+
+            setSelectedIncident(null);
+            openProject(projectId);
+          }}
+        />
+      )}
     </main>
   );
 }

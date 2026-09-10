@@ -4,6 +4,7 @@ import prisma from "../../../config/prisma.js";
 import { getOwnedProjectService } from "../../projects/services/project.service.js";
 import { checkUrl } from "../utils/checkUrl.js";
 import { calculateNextMonitorState } from "../utils/healthState.js";
+import { recordHealthTransition } from "../../incidents/services/incidentCorrelation.service.js";
 
 export async function checkProjectHealth(projectId: string) {
   const project = await prisma.project.findUnique({
@@ -70,7 +71,16 @@ export async function checkProjectHealth(projectId: string) {
       },
     }),
   ]);
-
+  if (nextState.statusChanged) {
+    await recordHealthTransition({
+      projectId: project.id,
+      healthCheckId: healthCheck.id,
+      previousStatus: project.monitorStatus,
+      currentStatus: nextState.monitorStatus,
+      statusCode: result.statusCode,
+      errorMessage: result.errorMessage,
+    });
+  }
   console.log(
     [
       `Health check completed for ${project.id}:`,

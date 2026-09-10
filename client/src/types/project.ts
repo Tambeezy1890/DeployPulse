@@ -41,4 +41,5 @@ export interface CreateProjectData {
   provider?: Provider | null;
   healthCheckUrl?: string | null;
   monitoringEnabled?: boolean;
+  githubRepositoryId?: string | null;
 }

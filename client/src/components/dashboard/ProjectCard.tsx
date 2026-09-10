@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
-import { Trash2, Clock3, Pencil } from "lucide-react";
+import { Clock3, Pencil, Trash2 } from "lucide-react";
 
-import type { Project } from "../../types/project";
 import type { Deployment } from "../../types/deployment";
+import type { Project } from "../../types/project";
 
-import deploymentService from "../../services/deploymentServices";
 import StatusBadge from "../ui/StatusBadge";
 
 type ProjectCardProps = {
   project: Project;
+  deployments: Deployment[];
   onQuickView: () => void;
   onOpen: () => void;
   onEdit: () => void;
@@ -17,28 +16,17 @@ type ProjectCardProps = {
 
 function ProjectCard({
   project,
+  deployments,
   onQuickView,
   onOpen,
   onDelete,
   onEdit,
 }: ProjectCardProps) {
-  const [latestDeployment, setLatestDeployment] = useState<Deployment | null>(
-    null,
-  );
-
-  useEffect(() => {
-    const loadLatestDeployment = async () => {
-      try {
-        const deployments = await deploymentService.getDeployments(project.id);
-
-        setLatestDeployment(deployments[0] ?? null);
-      } catch (error) {
-        console.error(`Failed to load deployments for ${project.name}`, error);
-      }
-    };
-
-    void loadLatestDeployment();
-  }, [project.id, project.name]);
+  const latestDeployment = [...deployments].sort(
+    (first, second) =>
+      new Date(second.createdAt).getTime() -
+      new Date(first.createdAt).getTime(),
+  )[0];
 
   return (
     <article
@@ -46,15 +34,17 @@ function ProjectCard({
       className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 p-5 transition hover:border-indigo-500/60 hover:bg-slate-900/80"
     >
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-white">{project.name}</h3>
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold text-white">
+            {project.name}
+          </h3>
 
           <p className="mt-2 text-sm text-slate-400">
             {project.description ?? "No description"}
           </p>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={(event) => {
