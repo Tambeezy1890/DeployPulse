@@ -8,6 +8,7 @@ import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
 import githubWebhookRouter from "./modules/webhooks/github/routes/githubWebhook.route.js";
 import githubInstallationRouter from "./modules/webhooks/github/routes/githubInstallation.route.js";
 import incidentRouter from "./modules/incidents/routes/incident.route.js";
+import notificationRouter from "./modules/notifications/routes/notification.route.js";
 
 const app: Express = express();
 
@@ -33,6 +34,7 @@ app.get("/", (_req: Request, res: Response) => {
 app.use("/api/auth", authRoute);
 app.use("/api/projects", projectRouter);
 app.use("/api/deployments", deploymentRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({

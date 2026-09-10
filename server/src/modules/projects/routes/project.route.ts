@@ -8,6 +8,7 @@ import {
   getProjects,
   updateProject,
 } from "../controller/project.controller.js";
+import projectNotificationRouter from "../../notifications/routes/projectNotification.route.js";
 
 import {
   createProjectValidator,
@@ -61,6 +62,8 @@ projectRouter.get(
   "/:projectId/health-checks",
   getProjectHealthChecksController,
 );
+
+projectRouter.use("/:projectId/notifications", projectNotificationRouter);
 
 projectRouter.use("/:projectId/deployments", projectDeploymentRouter);
 

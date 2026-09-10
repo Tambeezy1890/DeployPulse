@@ -31,18 +31,19 @@ model Project {
 
   githubRepoFullName String?
 
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   ownerId                String
-  owner                  User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                  User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   deployments            Deployment[]
   healthCheckUrl         String?
-  monitoringEnabled      Boolean       @default(false)
+  monitoringEnabled      Boolean               @default(false)
   healthChecks           HealthCheck[]
   incidents              Incident[]
-  monitorStatus          MonitorStatus @default(PENDING)
-  consecutiveFailures    Int           @default(0)
-  consecutiveSuccesses   Int           @default(0)
+  notificationChannels   NotificationChannel[]
+  monitorStatus          MonitorStatus         @default(PENDING)
+  consecutiveFailures    Int                   @default(0)
+  consecutiveSuccesses   Int                   @default(0)
   monitorStatusChangedAt DateTime?
   lastCheckedAt          DateTime?
   githubRepositoryId     String?
@@ -151,6 +152,45 @@ model IncidentEvent {
   incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
   @@index([incidentId, createdAt])
+}
+
+model NotificationChannel {
+  id         String                  @id @default(cuid())
+  name       String
+  type       NotificationChannelType
+  webhookUrl String
+  enabled    Boolean                 @default(true)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  deliveries NotificationDelivery[]
+
+  @@index([projectId])
+  @@index([projectId, enabled])
+}
+
+model NotificationDelivery {
+  id           String                     @id @default(cuid())
+  eventType    NotificationEventType
+  status       NotificationDeliveryStatus @default(PENDING)
+  attemptCount Int                        @default(0)
+  errorMessage String?
+  deliveredAt  DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  incidentId String?
+  dedupeKey  String  @unique
+
+  channelId String
+  channel   NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+  @@index([status])
+  @@index([incidentId])
 }
 
 model GitHubInstallation {
@@ -265,4 +305,21 @@ enum IncidentEventType {
   INCIDENT_OPENED
   INCIDENT_ESCALATED
   INCIDENT_RESOLVED
+}
+
+enum NotificationChannelType {
+  DISCORD
+  SLACK
+}
+
+enum NotificationEventType {
+  INCIDENT_OPENED
+  INCIDENT_UPDATED
+  INCIDENT_RESOLVED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
 }
