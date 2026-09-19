@@ -12,6 +12,7 @@ import { useProjectDetails } from "../../hooks/useProjectDetails";
 import DeleteDeploymentModal from "../../components/modals/DeleteDeploymentModal";
 import { useEffect } from "react";
 import { useDeployment } from "../../contexts/DeploymentContext";
+import NotificationChannelsPanel from "../../components/projectDetails/NotificationChannelsPanel";
 
 function ProjectDetails() {
   const { projectId } = useParams<{
@@ -100,6 +101,7 @@ function ProjectDetails() {
           loading={healthLoading}
           onRefresh={() => void loadHealth()}
         />
+        <NotificationChannelsPanel projectId={projectId} />
 
         {latestDeployment ? (
           <div className="mt-6">

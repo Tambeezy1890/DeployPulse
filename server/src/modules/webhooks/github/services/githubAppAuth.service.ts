@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import { ApiError } from "../../../../utils/ApiError.js";
 import {
   GITHUB_APP_ID,
-  GITHUB_APP_PRIVATE_KEY_PATH,
+  GITHUB_APP_PRIVATE_KEY,
 } from "../../../../config/config.js";
 
 const GITHUB_API_URL = "https://api.github.com";
@@ -49,36 +49,19 @@ function getRequiredGitHubConfig() {
     throw new ApiError("GITHUB_APP_ID is not configured.", 500);
   }
 
-  if (!GITHUB_APP_PRIVATE_KEY_PATH) {
-    throw new ApiError("GITHUB_APP_PRIVATE_KEY_PATH is not configured.", 500);
+  if (!GITHUB_APP_PRIVATE_KEY) {
+    throw new ApiError("GITHUB_APP_PRIVATE_KEY is not configured.", 500);
   }
 
   return {
     appId: GITHUB_APP_ID,
-    privateKeyPath: GITHUB_APP_PRIVATE_KEY_PATH,
+    privateKey: GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n"),
   };
 }
 
 async function getPrivateKey(): Promise<string> {
-  const { privateKeyPath } = getRequiredGitHubConfig();
-
-  if (!privateKeyPromise) {
-    const resolvedPath = resolve(process.cwd(), privateKeyPath);
-
-    privateKeyPromise = readFile(resolvedPath, "utf8").catch(
-      (error: unknown) => {
-        privateKeyPromise = null;
-
-        console.error("Failed to read GitHub App private key:", error);
-
-        throw new ApiError("GitHub App private key could not be loaded.", 500);
-      },
-    );
-  }
-
-  return privateKeyPromise;
+  return getRequiredGitHubConfig().privateKey;
 }
-
 async function parseGitHubResponse<T>(
   response: globalThis.Response,
   fallbackMessage: string,
