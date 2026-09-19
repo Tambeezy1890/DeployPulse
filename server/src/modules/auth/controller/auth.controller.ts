@@ -1,6 +1,6 @@
 import prisma from "../../../config/prisma.js";
 import { ApiError } from "../../../utils/ApiError.js";
-import asyncHandler from "../../../utils/AsyncHandler.js";
+
 import type { Request, Response, NextFunction } from "express";
 import { generateRefreshToken, generateToken } from "../utils/authToken.js";
 import bcrypt from "bcryptjs";
@@ -16,6 +16,7 @@ import {
 } from "../utils/authCookie.js";
 
 import { REFRESH_TOKEN_SECRET } from "../../../config/config.js";
+import asyncHandler from "../../../utils/AsyncHandler.js";
 
 export const registerUser = asyncHandler(
   async (req: Request<{}, {}, RegisterBody>, res: Response) => {
