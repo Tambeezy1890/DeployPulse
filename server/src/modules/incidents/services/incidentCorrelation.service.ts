@@ -1,6 +1,7 @@
 import prisma from "../../../config/prisma.js";
 import { ApiError } from "../../../utils/ApiError.js";
 
+import { dispatchIncidentNotification } from "../../notifications/services/notificationDelivery.service.js";
 import type {
   IncidentMetadata,
   IncidentSignalCause,
@@ -9,7 +10,35 @@ import type {
 } from "../types/incident.types.js";
 
 const getActiveKey = (projectId: string) => `project:${projectId}`;
+type IncidentNotificationEvent =
+  | "INCIDENT_OPENED"
+  | "INCIDENT_UPDATED"
+  | "INCIDENT_RESOLVED";
 
+function queueIncidentNotification({
+  incidentId,
+  eventType,
+  eventKey,
+}: {
+  incidentId: string;
+  eventType: IncidentNotificationEvent;
+  eventKey: string;
+}) {
+  /*
+   * Notifications intentionally run outside the incident database operation.
+   * Discord failures must never stop incident processing.
+   */
+  void dispatchIncidentNotification({
+    incidentId,
+    eventType,
+    eventKey,
+  }).catch((error: unknown) => {
+    console.error(
+      `Failed to dispatch ${eventType} notification for incident ${incidentId}:`,
+      error,
+    );
+  });
+}
 function getCombinedCause(
   existingCause: "DEPLOYMENT" | "HEALTH" | "COMBINED",
   incomingCause: IncidentSignalCause,
@@ -41,9 +70,18 @@ export async function openOrUpdateIncident(signal: OpenIncidentSignal) {
   const activeKey = getActiveKey(signal.projectId);
 
   /*
-   * Upsert prevents two simultaneous signals from creating
-   * separate open incidents for the same project.
+   * This lets us distinguish a newly opened incident from an update to an
+   * existing incident. Delivery deduplication still protects against races.
    */
+  const existingIncident = await prisma.incident.findUnique({
+    where: {
+      activeKey,
+    },
+    select: {
+      id: true,
+    },
+  });
+
   const incident = await prisma.incident.upsert({
     where: {
       activeKey,
@@ -79,7 +117,6 @@ export async function openOrUpdateIncident(signal: OpenIncidentSignal) {
   });
 
   const nextCause = getCombinedCause(incident.cause, signal.cause);
-
   const nextSeverity = getHighestSeverity(incident.severity, signal.severity);
 
   const severityEscalated =
@@ -112,10 +149,6 @@ export async function openOrUpdateIncident(signal: OpenIncidentSignal) {
     },
   });
 
-  /*
-   * A repeated webhook or health signal will have the same
-   * dedupeKey and therefore won't create another timeline event.
-   */
   await prisma.incidentEvent.upsert({
     where: {
       dedupeKey: signal.dedupeKey,
@@ -133,6 +166,20 @@ export async function openOrUpdateIncident(signal: OpenIncidentSignal) {
 
     update: {},
   });
+
+  if (existingIncident) {
+    queueIncidentNotification({
+      incidentId: updatedIncident.id,
+      eventType: "INCIDENT_UPDATED",
+      eventKey: signal.dedupeKey,
+    });
+  } else {
+    queueIncidentNotification({
+      incidentId: updatedIncident.id,
+      eventType: "INCIDENT_OPENED",
+      eventKey: `incident:${updatedIncident.id}:opened`,
+    });
+  }
 
   return prisma.incident.findUnique({
     where: {
@@ -164,6 +211,7 @@ async function addEventToOpenIncident({
   sourceId,
   dedupeKey,
   metadata,
+  notify = true,
 }: {
   projectId: string;
   type: "HEALTH_RECOVERING" | "HEALTHY";
@@ -171,6 +219,7 @@ async function addEventToOpenIncident({
   sourceId: string;
   dedupeKey: string;
   metadata?: IncidentMetadata;
+  notify?: boolean;
 }) {
   const incident = await prisma.incident.findUnique({
     where: {
@@ -199,17 +248,26 @@ async function addEventToOpenIncident({
     update: {},
   });
 
-  await prisma.incident.update({
+  const updatedIncident = await prisma.incident.update({
     where: {
       id: incident.id,
     },
 
     data: {
       lastActivityAt: new Date(),
+      summary: message,
     },
   });
 
-  return incident;
+  if (notify) {
+    queueIncidentNotification({
+      incidentId: updatedIncident.id,
+      eventType: "INCIDENT_UPDATED",
+      eventKey: dedupeKey,
+    });
+  }
+
+  return updatedIncident;
 }
 
 async function resolveActiveIncident({
@@ -249,7 +307,7 @@ async function resolveActiveIncident({
 
   const now = new Date();
 
-  return prisma.incident.update({
+  const resolvedIncident = await prisma.incident.update({
     where: {
       id: incident.id,
     },
@@ -280,6 +338,14 @@ async function resolveActiveIncident({
       },
     },
   });
+
+  queueIncidentNotification({
+    incidentId: resolvedIncident.id,
+    eventType: "INCIDENT_RESOLVED",
+    eventKey: dedupeKey,
+  });
+
+  return resolvedIncident;
 }
 
 export async function recordDeploymentFailure({
@@ -397,6 +463,7 @@ export async function recordHealthTransition({
       sourceId: healthCheckId,
       dedupeKey: `health:${healthCheckId}:healthy`,
       metadata,
+      notify: false,
     });
 
     return resolveActiveIncident({
@@ -408,8 +475,6 @@ export async function recordHealthTransition({
       resolutionSource: "HEALTH",
     });
   }
-
-  return null;
 }
 
 export async function getIncidentsService(
@@ -501,8 +566,9 @@ export async function manuallyResolveIncidentService(
   }
 
   const now = new Date();
+  const resolutionDedupeKey = `incident:${incident.id}:manual-resolution`;
 
-  return prisma.incident.update({
+  const resolvedIncident = await prisma.incident.update({
     where: {
       id: incident.id,
     },
@@ -512,11 +578,13 @@ export async function manuallyResolveIncidentService(
       activeKey: null,
       resolvedAt: now,
       lastActivityAt: now,
+      summary: "Incident was manually resolved by the user.",
 
       events: {
         create: {
           type: "INCIDENT_RESOLVED",
           message: "Incident was manually resolved by the user.",
+          dedupeKey: resolutionDedupeKey,
           createdAt: now,
         },
       },
@@ -538,4 +606,12 @@ export async function manuallyResolveIncidentService(
       },
     },
   });
+
+  queueIncidentNotification({
+    incidentId: resolvedIncident.id,
+    eventType: "INCIDENT_RESOLVED",
+    eventKey: resolutionDedupeKey,
+  });
+
+  return resolvedIncident;
 }

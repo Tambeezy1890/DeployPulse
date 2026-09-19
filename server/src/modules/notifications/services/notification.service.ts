@@ -10,8 +10,8 @@ import {
 import type {
   CreateDiscordChannelBody,
   UpdateNotificationChannelBody,
-} from "../types/notification.types.ts";
-import { sendDiscordWebhook } from "./ discord.service.js";
+} from "../types/notification.types.js";
+import { sendDiscordWebhook } from "./discord.service.js";
 
 async function getOwnedProject(projectId: string, ownerId: string) {
   const project = await prisma.project.findFirst({
