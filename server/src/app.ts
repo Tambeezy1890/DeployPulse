@@ -4,13 +4,14 @@ import cookieParser from "cookie-parser";
 
 import { CLIENT_URL } from "./config/config.js";
 import authRoute from "./modules/auth/routes/auth.route.js";
-import { errorMiddleware } from "./middleware/Error.Middleware.js";
+
 import projectRouter from "./modules/projects/routes/project.route.js";
 import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
 import githubWebhookRouter from "./modules/webhooks/github/routes/githubWebhook.route.js";
 import githubInstallationRouter from "./modules/webhooks/github/routes/githubInstallation.route.js";
 import incidentRouter from "./modules/incidents/routes/incident.route.js";
 import notificationRouter from "./modules/notifications/routes/notification.route.js";
+import { errorMiddleware } from "./middleware/Error.Middleware.js";
 
 const app: Express = express();
 
