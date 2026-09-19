@@ -1,4 +1,3 @@
-import asyncHandler from "../../../utils/AsyncHandler.js";
 import { ApiError } from "../../../utils/ApiError.js";
 
 import type {
@@ -15,6 +14,7 @@ import {
   getDeploymentsService,
   updateDeploymentStatusService,
 } from "../services/deployment.service.js";
+import asyncHandler from "../../../utils/AsyncHandler.js";
 
 export const createDeployment = asyncHandler<
   ProjectDeploymentParams,

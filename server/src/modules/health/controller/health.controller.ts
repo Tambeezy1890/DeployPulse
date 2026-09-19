@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 
-import asyncHandler from "../../../utils/AsyncHandler.js";
 import { ApiError } from "../../../utils/ApiError.js";
 import { getProjectHealthChecks } from "../services/health.service.js";
+import asyncHandler from "../../../utils/AsyncHandler.js";
 
 export const getProjectHealthChecksController = asyncHandler(
   async (req: Request, res: Response) => {

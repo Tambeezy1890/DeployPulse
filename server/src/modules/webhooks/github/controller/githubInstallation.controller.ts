@@ -5,8 +5,9 @@ import {
   createGitHubInstallationUrl,
   getUserGitHubInstallations,
 } from "../services/githubInstallation.service.js";
-import asyncHandler from "../../../../utils/AsyncHandler.js";
+
 import { ApiError } from "../../../../utils/ApiError.js";
+import asyncHandler from "../../../../utils/AsyncHandler.js";
 
 type CompleteInstallationBody = {
   installationId?: string;
