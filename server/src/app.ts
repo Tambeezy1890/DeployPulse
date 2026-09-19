@@ -1,8 +1,10 @@
 import express, { type Express, type Response, type Request } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+
+import { CLIENT_URL } from "./config/config.js";
 import authRoute from "./modules/auth/routes/auth.route.js";
 import { errorMiddleware } from "./middleware/Error.Middleware.js";
-import cookieParser from "cookie-parser";
 import projectRouter from "./modules/projects/routes/project.route.js";
 import deploymentRouter from "./modules/deployments/routes/deployment.route.js";
 import githubWebhookRouter from "./modules/webhooks/github/routes/githubWebhook.route.js";
@@ -12,29 +14,35 @@ import notificationRouter from "./modules/notifications/routes/notification.rout
 
 const app: Express = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  ...(CLIENT_URL
+    ? CLIENT_URL.split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : []),
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   }),
 );
+
+/*
+ * Keep this before express.json() if the GitHub webhook route
+ * verifies signatures using the original raw request body.
+ */
 app.use("/api/webhooks/github", githubWebhookRouter);
 
 app.use(express.json());
-
 app.use(cookieParser());
-
-app.use("/api/incidents", incidentRouter);
-
-app.use("/api/github", githubInstallationRouter);
 
 app.get("/", (_req: Request, res: Response) => {
   res.send("Server is now live");
 });
-app.use("/api/auth", authRoute);
-app.use("/api/projects", projectRouter);
-app.use("/api/deployments", deploymentRouter);
-app.use("/api/notifications", notificationRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
@@ -45,6 +53,13 @@ app.get("/api/health", (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use("/api/auth", authRoute);
+app.use("/api/incidents", incidentRouter);
+app.use("/api/github", githubInstallationRouter);
+app.use("/api/projects", projectRouter);
+app.use("/api/deployments", deploymentRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.use(errorMiddleware);
 

@@ -13,15 +13,18 @@ import {
 
 const allowedOrigins = [
   "http://localhost:5173",
-  ...(CLIENT_URL ? [CLIENT_URL] : []),
+  ...(CLIENT_URL
+    ? CLIENT_URL.split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : []),
 ];
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["POST", "GET", "PATCH", "DELETE"],
+    methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true,
   },
 });
