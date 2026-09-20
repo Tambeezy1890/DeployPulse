@@ -73,7 +73,6 @@ export async function processGitHubDeployment(
   const projects = await findMatchingProjects(payload.repository.full_name);
 
   const externalId = String(payload.deployment.id);
-  const sourceUpdatedAt = new Date(payload.deployment.updated_at);
 
   for (const project of projects) {
     await prisma.deployment.upsert({
@@ -90,25 +89,25 @@ export async function processGitHubDeployment(
         source: "GITHUB",
         externalId,
         status: "PENDING",
-
         environment: mapEnvironment(payload.deployment.environment),
-
         branch: payload.deployment.ref,
         commitSha: payload.deployment.sha,
         commitMessage: payload.deployment.description,
-
         startedAt: new Date(payload.deployment.created_at),
 
-        externalUpdatedAt: sourceUpdatedAt,
+        // This timestamp is reserved for deployment-status events.
+        externalUpdatedAt: null,
       },
 
       update: {
         environment: mapEnvironment(payload.deployment.environment),
-
         branch: payload.deployment.ref,
         commitSha: payload.deployment.sha,
         commitMessage: payload.deployment.description,
-        externalUpdatedAt: sourceUpdatedAt,
+
+        // Do not change status or externalUpdatedAt here.
+        // A delayed deployment event must not overwrite
+        // information from a deployment_status event.
       },
     });
   }
@@ -143,9 +142,23 @@ export async function processGitHubDeploymentStatus(
       },
     });
 
+    const incomingIsActive = status === "PENDING" || status === "RUNNING";
+
+    const existingIsFinished =
+      existingDeployment !== null &&
+      isFinishedStatus(existingDeployment.status);
+
+    // Never allow a late pending/running event to reopen
+    // an already completed deployment.
+    if (existingIsFinished && incomingIsActive) {
+      continue;
+    }
+
+    // Only reject events that are strictly older.
+    // Equal timestamps can occur for related GitHub events.
     if (
       existingDeployment?.externalUpdatedAt &&
-      existingDeployment.externalUpdatedAt >= eventTime
+      existingDeployment.externalUpdatedAt > eventTime
     ) {
       continue;
     }
@@ -156,7 +169,7 @@ export async function processGitHubDeploymentStatus(
     const finishedAt = isFinishedStatus(status) ? eventTime : null;
 
     const durationMs = finishedAt
-      ? finishedAt.getTime() - startedAt.getTime()
+      ? Math.max(0, finishedAt.getTime() - startedAt.getTime())
       : null;
 
     const updatedDeployment = await prisma.deployment.upsert({
