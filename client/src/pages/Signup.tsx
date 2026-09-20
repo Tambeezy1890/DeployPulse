@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Eye, EyeOff, KeyRound, UserPlus } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import authService from "../services/authServices";
 
@@ -21,6 +21,7 @@ function Signup() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log("Signup form submitted");
 
     setError("");
     setSuccessMessage("");
