@@ -97,10 +97,10 @@ function IncidentDetailsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="incident-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/40"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/40"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-800 p-6">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-800 p-6">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span
@@ -138,7 +138,7 @@ function IncidentDetailsModal({
           </button>
         </header>
 
-        <div className="max-h-[calc(90vh-170px)] overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
           <section className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-sm sm:grid-cols-2">
             <div>
               <p className="text-xs text-slate-500">Project</p>
@@ -234,7 +234,7 @@ function IncidentDetailsModal({
           </section>
         </div>
 
-        <footer className="flex flex-col-reverse gap-3 border-t border-slate-800 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-800 bg-slate-900 p-5 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             onClick={onOpenProject}
