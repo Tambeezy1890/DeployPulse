@@ -13,7 +13,16 @@ export type AuthUser = {
   createdAt: string;
   updatedAt?: string;
 };
+export type RegisterData = {
+  name: string;
+  email: string;
+  password: string;
+};
 
+type RegisterResponse = {
+  success: boolean;
+  message: string;
+};
 type LoginResponse = {
   message: string;
   accessToken: string;
@@ -26,6 +35,11 @@ type CurrentUserResponse = {
 };
 
 const authService = {
+  async register(data: RegisterData): Promise<string> {
+    const response = await api.post<RegisterResponse>("/auth/register", data);
+
+    return response.data.message;
+  },
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await api.post<LoginResponse>("/auth/login", {
       email,
