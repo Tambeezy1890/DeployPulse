@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { ApiError } from "../../../../utils/ApiError.js";
 import {
   GITHUB_APP_ID,
-  GITHUB_APP_PRIVATE_KEY,
+  GITHUB_APP_PRIVATE_KEY_BASE64,
 } from "../../../../config/config.js";
 
 const GITHUB_API_URL = "https://api.github.com";
@@ -44,20 +44,21 @@ function getRequiredGitHubConfig() {
     throw new ApiError("GITHUB_APP_ID is not configured.", 500);
   }
 
-  if (!GITHUB_APP_PRIVATE_KEY) {
-    throw new ApiError("GITHUB_APP_PRIVATE_KEY is not configured.", 500);
+  if (!GITHUB_APP_PRIVATE_KEY_BASE64) {
+    throw new ApiError("GITHUB_APP_PRIVATE_KEY_BASE64 is not configured.", 500);
   }
 
-  const privateKey = GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n")
-    .replace(/^["']|["']$/g, "")
+  const privateKey = Buffer.from(GITHUB_APP_PRIVATE_KEY_BASE64.trim(), "base64")
+    .toString("utf8")
     .trim();
 
   if (
-    !privateKey.includes("-----BEGIN") ||
-    !privateKey.includes("PRIVATE KEY-----")
+    !privateKey.startsWith("-----BEGIN") ||
+    !privateKey.includes("PRIVATE KEY-----") ||
+    !privateKey.includes("-----END")
   ) {
     throw new ApiError(
-      "GITHUB_APP_PRIVATE_KEY is not a valid PEM private key.",
+      "Decoded GitHub App private key is not a valid PEM key.",
       500,
     );
   }
