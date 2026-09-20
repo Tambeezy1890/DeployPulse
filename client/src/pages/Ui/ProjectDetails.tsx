@@ -10,7 +10,7 @@ import DeploymentHistory from "../../components/projectDetails/DeploymentHistory
 
 import { useProjectDetails } from "../../hooks/useProjectDetails";
 import DeleteDeploymentModal from "../../components/modals/DeleteDeploymentModal";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useDeployment } from "../../contexts/DeploymentContext";
 import NotificationChannelsPanel from "../../components/projectDetails/NotificationChannelsPanel";
 
@@ -35,22 +35,40 @@ function ProjectDetails() {
     confirmDeploymentDelete,
   } = useProjectDetails(projectId);
   const { getDeployments } = useDeployment();
+  const hasRecentActiveDeployment = useMemo(() => {
+    const ACTIVE_TIMEOUT_MS = 20 * 60 * 1000;
+
+    return deployments.some((deployment) => {
+      const isActive =
+        deployment.status === "PENDING" || deployment.status === "RUNNING";
+
+      if (!isActive) return false;
+
+      const timestamp = new Date(
+        deployment.startedAt ?? deployment.createdAt,
+      ).getTime();
+
+      return (
+        Number.isFinite(timestamp) && Date.now() - timestamp < ACTIVE_TIMEOUT_MS
+      );
+    });
+  }, [deployments]);
+
   useEffect(() => {
     if (!projectId) return;
 
-    const hasActiveDeployment = deployments.some(
-      (deployment) =>
-        deployment.status === "PENDING" || deployment.status === "RUNNING",
-    );
+    const pollingInterval = hasRecentActiveDeployment ? 5_000 : 30_000;
 
-    const pollingInterval = hasActiveDeployment ? 1_500 : 10_000;
+    const loadDeployments = () => {
+      if (document.visibilityState === "visible") {
+        void getDeployments(projectId);
+      }
+    };
 
-    const intervalId = window.setInterval(() => {
-      void getDeployments(projectId);
-    }, pollingInterval);
+    const intervalId = window.setInterval(loadDeployments, pollingInterval);
 
     return () => window.clearInterval(intervalId);
-  }, [deployments, projectId, getDeployments]);
+  }, [projectId, getDeployments, hasRecentActiveDeployment]);
 
   if (projectLoading) {
     return (

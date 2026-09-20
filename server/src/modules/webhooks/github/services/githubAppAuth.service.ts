@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
 import jwt from "jsonwebtoken";
 import { ApiError } from "../../../../utils/ApiError.js";
 import {
@@ -9,7 +6,7 @@ import {
 } from "../../../../config/config.js";
 
 const GITHUB_API_URL = "https://api.github.com";
-const GITHUB_API_VERSION = "2026-03-10";
+const GITHUB_API_VERSION = "2022-11-28";
 
 type InstallationTokenResponse = {
   token: string;
@@ -42,8 +39,6 @@ type InstallationRepositoriesResponse = {
   repositories: GitHubAppRepository[];
 };
 
-let privateKeyPromise: Promise<string> | null = null;
-
 function getRequiredGitHubConfig() {
   if (!GITHUB_APP_ID) {
     throw new ApiError("GITHUB_APP_ID is not configured.", 500);
@@ -53,15 +48,43 @@ function getRequiredGitHubConfig() {
     throw new ApiError("GITHUB_APP_PRIVATE_KEY is not configured.", 500);
   }
 
+  const privateKey = GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n")
+    .replace(/^["']|["']$/g, "")
+    .trim();
+
+  if (
+    !privateKey.includes("-----BEGIN") ||
+    !privateKey.includes("PRIVATE KEY-----")
+  ) {
+    throw new ApiError(
+      "GITHUB_APP_PRIVATE_KEY is not a valid PEM private key.",
+      500,
+    );
+  }
+
   return {
     appId: GITHUB_APP_ID,
-    privateKey: GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    privateKey,
   };
 }
 
-async function getPrivateKey(): Promise<string> {
-  return getRequiredGitHubConfig().privateKey;
+function generateGitHubAppJwt(): string {
+  const { appId, privateKey } = getRequiredGitHubConfig();
+  const now = Math.floor(Date.now() / 1000);
+
+  return jwt.sign(
+    {
+      iat: now - 60,
+      exp: now + 9 * 60,
+      iss: appId,
+    },
+    privateKey,
+    {
+      algorithm: "RS256",
+    },
+  );
 }
+
 async function parseGitHubResponse<T>(
   response: globalThis.Response,
   fallbackMessage: string,
@@ -91,27 +114,10 @@ async function parseGitHubResponse<T>(
   return responseBody as T;
 }
 
-async function generateGitHubAppJwt(): Promise<string> {
-  const privateKey = await getPrivateKey();
-  const now = Math.floor(Date.now() / 1000);
-
-  return jwt.sign(
-    {
-      iat: now - 60,
-      exp: now + 9 * 60,
-      iss: GITHUB_APP_ID,
-    },
-    privateKey,
-    {
-      algorithm: "RS256",
-    },
-  );
-}
-
 export async function getGitHubInstallation(
   installationId: string,
 ): Promise<GitHubAppInstallation> {
-  const appJwt = await generateGitHubAppJwt();
+  const appJwt = generateGitHubAppJwt();
 
   const response = await fetch(
     `${GITHUB_API_URL}/app/installations/${encodeURIComponent(installationId)}`,
@@ -135,7 +141,7 @@ export async function getGitHubInstallation(
 export async function createInstallationAccessToken(
   installationId: string,
 ): Promise<InstallationTokenResponse> {
-  const appJwt = await generateGitHubAppJwt();
+  const appJwt = generateGitHubAppJwt();
 
   const response = await fetch(
     `${GITHUB_API_URL}/app/installations/${encodeURIComponent(
