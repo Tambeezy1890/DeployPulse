@@ -1,0 +1,70 @@
+name: deploypulse
+
+x-server-environment: &server-environment
+  NODE_ENV: production
+  PORT: 5050
+  DATABASE_URL: postgresql://deploypulse:deploypulse@postgres:5432/deploypulse?schema=public
+  CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+  JWT_SECRET: ${JWT_SECRET:-local-jwt-secret-change-before-production}
+  EXPIRES_IN: ${EXPIRES_IN:-15m}
+  REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-local-refresh-secret-change-before-production}
+  REFRESH_EXPIRES_IN: ${REFRESH_EXPIRES_IN:-7d}
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_PRIVATE_KEY_BASE64: ${GITHUB_APP_PRIVATE_KEY_BASE64:-}
+  GITHUB_APP_SETUP_STATE_SECRET: ${GITHUB_APP_SETUP_STATE_SECRET:-local-github-state-secret}
+  NOTIFICATION_ENCRYPTION_KEY: ${NOTIFICATION_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+  HEALTH_CHECK_INTERVAL_MS: ${HEALTH_CHECK_INTERVAL_MS:-300000}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: deploypulse
+      POSTGRES_USER: deploypulse
+      POSTGRES_PASSWORD: deploypulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deploypulse -d deploypulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ./server
+    command: ["npm", "run", "prisma:deploy"]
+    environment: *server-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./server
+    environment: *server-environment
+    ports:
+      - "5050:5050"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./server
+    command: ["npm", "run", "start:worker"]
+    environment: *server-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

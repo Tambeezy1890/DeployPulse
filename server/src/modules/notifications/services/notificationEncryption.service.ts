@@ -9,7 +9,6 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey() {
-  console.log("NOTIFICATION_ENCRYPTION_KEY", NOTIFICATION_ENCRYPTION_KEY);
   if (!NOTIFICATION_ENCRYPTION_KEY) {
     throw new ApiError("Notification encryption key is not configured.", 500);
   }

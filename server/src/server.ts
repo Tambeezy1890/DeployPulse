@@ -6,11 +6,6 @@ import { CLIENT_URL, NODE_ENV, PORT } from "./config/config.js";
 
 import app from "./app.js";
 
-import {
-  startHealthWorker,
-  stopHealthWorker,
-} from "./workers/health.worker.js";
-
 const allowedOrigins = [
   "http://localhost:5173",
   ...(CLIENT_URL
@@ -39,8 +34,6 @@ io.on("connection", (socket) => {
 
 server.on("error", (error) => {
   console.error("HTTP server error:", error);
-
-  stopHealthWorker();
   process.exit(1);
 });
 
@@ -50,6 +43,25 @@ server.listen(port, () => {
   console.log(
     `Server live on port ${port} in ${NODE_ENV ?? "development"} mode`,
   );
-
-  startHealthWorker();
 });
+
+function shutdown(signal: NodeJS.Signals): void {
+  console.log(`${signal} received. Closing HTTP server.`);
+
+  server.close((error) => {
+    if (error) {
+      console.error("Failed to close HTTP server cleanly:", error);
+      process.exit(1);
+    }
+
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error("HTTP server shutdown timed out.");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
